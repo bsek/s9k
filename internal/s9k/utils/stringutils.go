@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -38,18 +37,9 @@ func LowerTitle(s string) string {
 	return strings.Title(strings.ToLower(s))
 }
 
-// Replaces all regex matches in a string
-func ReplaceAllRegex(pattern string, src string, replace string) string {
-	return regexp.MustCompile(pattern).ReplaceAllString(src, replace)
-}
-
-// Removes all regex matches in a string
-func RemoveAllRegex(pattern string, src string) string {
-	return ReplaceAllRegex(pattern, src, "")
-}
-
-func RemoveAllBeforeLastChar(char string, src string) string {
-	lastIndex := strings.LastIndex(src, char)
+// Removes all characaters before and including delimiter
+func RemoveAllBeforeLastChar(delimiter string, src string) string {
+	lastIndex := strings.LastIndex(src, delimiter)
 	if lastIndex > 0 {
 		return src[lastIndex+1:]
 	}

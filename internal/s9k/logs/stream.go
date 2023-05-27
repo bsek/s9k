@@ -45,11 +45,16 @@ func (p *LogStreamPage) LoadData() {
 		return
 	}
 
-	p.View.SetTitle(fmt.Sprintf(" %s (%d rows) ", p.StreamName, len(output)))
+	var length int
+	for _, v := range output {
+		length = length + len(v)
+	}
+
+	p.View.SetTitle(fmt.Sprintf(" %s (%d rows) ", p.StreamName, length))
 
 	for _, v := range output {
 		for _, v2 := range v {
-			fmt.Fprintf(p.View, "%s\n", *v2.Message)
+			fmt.Fprintf(p.View, "%s", *v2.Message)
 		}
 	}
 }

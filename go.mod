@@ -12,7 +12,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.26.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0
 	github.com/creack/pty v1.1.18
-	github.com/gdamore/tcell v1.4.0
 	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/oslokommune/skjema-bibliotek-commons-go/aws v0.2.5
 	github.com/rs/zerolog v1.27.0

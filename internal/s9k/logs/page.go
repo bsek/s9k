@@ -2,7 +2,6 @@ package logs
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/samber/lo"
 
-	"github.com/bsek/s9k/internal/s9k/aws"
+	"github.com/bsek/s9k/internal/s9k/ui"
 )
 
 var logStreamPagesIndex map[string]*LogStreamPage
@@ -21,14 +20,8 @@ type LogPage struct {
 	Flex *tview.Flex
 }
 
-func NewLogPage(logGroupName, taskArn, containerName string, closeFunc func()) *LogPage {
-	output, err := aws.FetchLogStreams(logGroupName, containerName, taskArn)
-	if err != nil {
-		log.Printf("Failed to read log streams %v\n", err)
-		return nil
-	}
-
-	streams := lo.Map(output, func(item types.LogStream, index int) string {
+func NewLogPage(logGroupName string, logStreams []types.LogStream, closeFunc func()) *LogPage {
+	streams := lo.Map(logStreams, func(item types.LogStream, index int) string {
 		return *item.LogStreamName
 	})
 
@@ -49,7 +42,7 @@ func NewLogPage(logGroupName, taskArn, containerName string, closeFunc func()) *
 		return event
 	}
 
-	flex := buildUI(logGroupName, streams)
+	flex := buildUI(logGroupName, streams, closeFunc)
 	flex.SetInputCapture(inputHandler)
 
 	return &LogPage{
@@ -72,28 +65,34 @@ func selectLogStreamPageByIndex(key tcell.Key) bool {
 	return false
 }
 
-func buildUI(logGroupName string, streams []string) *tview.Flex {
+func buildUI(logGroupName string, streams []string, closeFunc func()) *tview.Flex {
 	flex := tview.NewFlex()
 	logStreamPages = tview.NewPages()
 	logStreamPagesIndex = make(map[string]*LogStreamPage, len(streams))
 
-	for i, v := range streams {
-		p := NewLogStreamPage(logGroupName, v, i == 0)
-		logStreamPagesIndex[fmt.Sprintf("F%d", i+1)] = p
-		logStreamPages.AddPage(v, p.View, true, i == 0)
+	if len(streams) == 0 {
+		pages := tview.NewPages()
+		ui.CreateMessageBox(fmt.Sprintf("Could not find any logstreams for LogGroupName %s", logGroupName), pages)
+		flex.AddItem(pages, 0, 1, true)
+	} else {
+
+		for i, v := range streams {
+			p := NewLogStreamPage(logGroupName, v, i == 0)
+			logStreamPagesIndex[fmt.Sprintf("F%d", i+1)] = p
+			logStreamPages.AddPage(v, p.View, true, i == 0)
+		}
+
+		commandFooterBar := buildCommandFooterBar(streams)
+
+		footer := tview.NewFlex().
+			SetDirection(tview.FlexColumn).
+			AddItem(commandFooterBar, 0, 1, false)
+
+		flex.
+			SetDirection(tview.FlexRow).
+			AddItem(logStreamPages, 0, 1, false).
+			AddItem(footer, 3, 1, false)
 	}
-
-	commandFooterBar := buildCommandFooterBar(streams)
-
-	footer := tview.NewFlex().
-		SetDirection(tview.FlexColumn).
-		AddItem(commandFooterBar, 0, 1, false)
-
-	flex.
-		SetDirection(tview.FlexRow).
-		AddItem(logStreamPages, 0, 1, false).
-		AddItem(footer, 3, 1, false)
-
 	return flex
 }
 

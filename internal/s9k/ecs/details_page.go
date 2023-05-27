@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/bsek/s9k/internal/s9k/aws"
+	"github.com/bsek/s9k/internal/s9k/data"
 	"github.com/bsek/s9k/internal/s9k/github"
 	"github.com/bsek/s9k/internal/s9k/ui"
 	"github.com/bsek/s9k/internal/s9k/utils"
@@ -20,12 +21,12 @@ type ServiceDetailPage struct {
 	Flex *tview.Flex
 }
 
-func NewServiceDetailsPage(app *tview.Application, inputData *types.Service, deployFunc func(version string), restartFunc func(), openActions func(task *types.Task, containerName string), closeFunc func()) *ServiceDetailPage {
-	clusterName := utils.RemoveAllBeforeLastChar("/", *inputData.ClusterArn)
+func NewServiceDetailsPage(app *tview.Application, inputData *data.ServiceData, deployFunc func(version string), restartFunc func(), openActions func(task *types.Task, container data.Container), closeFunc func()) *ServiceDetailPage {
+	clusterName := utils.RemoveAllBeforeLastChar("/", *inputData.Service.ClusterArn)
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(createServiceDetailsTable(inputData, clusterName), 7, 1, false).
+		AddItem(createServiceDetailsTable(inputData.Service, clusterName), 7, 1, false).
 		AddItem(createServiceTaskTable(inputData, clusterName, openActions), 0, 3, false).
-		AddItem(createDeployablesTable(inputData, deployFunc), 0, 3, false).
+		AddItem(createDeployablesTable(inputData.Service, deployFunc), 0, 3, false).
 		AddItem(createActionsRow(restartFunc), 5, 1, false)
 
 	flex.SetInputCapture(createInputHandler(flex, app, closeFunc))
@@ -110,7 +111,7 @@ func createServiceDetailsTable(service *types.Service, clusterName string) *tvie
 		memoryMeter = utils.BuildAsciiMeterCurrentTotal(memUsed, memReserved, meterWidth)
 	}
 
-	var data [][]string
+	var tableData [][]string
 
 	deployTimeTxt := "n/a"
 	if len(service.Deployments) > 0 {
@@ -125,9 +126,9 @@ func createServiceDetailsTable(service *types.Service, clusterName string) *tvie
 		taskCount = fmt.Sprintf("%s (%d desired)", taskCount, service.DesiredCount)
 	}
 
-	data = append(data, []string{
+	tableData = append(tableData, []string{
 		*service.ServiceName,
-		utils.RemoveAllRegex(`.*/`, *service.TaskDefinition),
+		utils.RemoveAllBeforeLastChar("/", *service.TaskDefinition),
 		utils.LowerTitle(*service.Status),
 		deployTimeTxt,
 		taskCount,
@@ -135,33 +136,36 @@ func createServiceDetailsTable(service *types.Service, clusterName string) *tvie
 		memoryMeter,
 	})
 
-	ui.AddTableConfigData(tableInfo, 1, data, tcell.ColorWhite)
+	ui.AddTableConfigData(tableInfo, 1, tableData, tcell.ColorWhite)
 
 	return detailsTable
 }
 
-func createServiceTaskTable(service *types.Service, clusterName string, openActions func(task *types.Task, containerName string)) *tview.Frame {
-	flex := tview.NewFlex()
+func createServiceTaskTable(service *data.ServiceData, clusterName string, openActions func(task *types.Task, container data.Container)) *tview.Frame {
+	log.Info().Msgf("Creating detailspage with data: %v", service)
+
+	flex := tview.NewFlex().SetDirection(tview.FlexRow)
 	frame := tview.NewFrame(flex)
 
 	frame.SetBorder(true).
 		SetTitle(" 🐳 (C)ontainers ")
 
 	// fetch tasks
-	tasks, err := aws.DescribeClusterTasks(&clusterName, service.ServiceName)
+	tasks, err := aws.DescribeClusterTasks(&clusterName, service.Service.ServiceName)
 	if err != nil {
 		log.Error().Err(err).Msg("Klarte ikke hente cluster tasks")
 	}
 
 	sort.SliceStable(tasks, func(i, j int) bool {
-		return 0 > strings.Compare(utils.RemoveAllRegex(`.*/`, *tasks[i].TaskDefinitionArn), utils.RemoveAllRegex(`.*/`, *tasks[j].TaskDefinitionArn))
+		return 0 > strings.Compare(
+			utils.RemoveAllBeforeLastChar("/", *tasks[i].TaskDefinitionArn),
+			utils.RemoveAllBeforeLastChar("/", *tasks[j].TaskDefinitionArn))
 	})
 
 	for _, task := range tasks {
-
 		containerTable := tview.NewTable().SetSelectable(true, false)
 
-		var data [][]string
+		var tableData [][]string
 
 		for _, container := range task.Containers {
 			var memory, cpu string
@@ -178,7 +182,7 @@ func createServiceTaskTable(service *types.Service, clusterName string, openActi
 				cpu = *container.Cpu
 			}
 
-			data = append(data, []string{
+			tableData = append(tableData, []string{
 				*container.Name,
 				utils.RemoveAllBeforeLastChar("/", *task.TaskArn),
 				utils.RemoveAllBeforeLastChar("/", *task.TaskDefinitionArn),
@@ -201,12 +205,25 @@ func createServiceTaskTable(service *types.Service, clusterName string, openActi
 			{"Name", "Task", "Task definition", "Image", "Status", "Health", "Memory", "CPU"},
 		}, tcell.ColorYellow)
 
-		ui.AddTableConfigData(tableInfo, 1, data, tcell.ColorWhite)
+		ui.AddTableConfigData(tableInfo, 1, tableData, tcell.ColorWhite)
 
 		tableInfo.Table.SetSelectedFunc(func(row, column int) {
-			containerName := tableInfo.Table.GetCell(row, 0).Text
-			openActions(&task, containerName)
+			cell := tableInfo.Table.GetCell(row, 0)
+			container := tableInfo.Table.GetCell(row, 0).Reference.(data.Container)
+			log.Info().Msgf("Using cell: %s and found container data: %v", cell.Text, container)
+			openActions(&task, container)
 		})
+
+		// set reference to container
+		for i := 0; i < len(service.Containers); i++ {
+			cell := tableInfo.Table.GetCell(i+1, 0)
+			for _, v := range service.Containers {
+				if v.Name == cell.Text {
+					cell.SetReference(v)
+					log.Info().Msgf("Setting container %s to reference %v", cell.Text, v)
+				}
+			}
+		}
 
 		flex.AddItem(tableInfo.Table, 0, 1, true)
 	}

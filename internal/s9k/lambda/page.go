@@ -30,31 +30,16 @@ func NewLambdasPage(app *tview.Application, flex *tview.Flex) *LambdasPage {
 	lambdasTable.SetSelectable(true, false)
 
 	lambdasTable.SetSelectedFunc(func(row, column int) {
-		text := lambdasTable.GetCell(row, 1).Text
+		ref := lambdasTable.GetCell(row, 1).Reference.(types.FunctionConfiguration)
 		inputCaptureFunction := app.GetInputCapture()
-
-		var pages *tview.Pages
 
 		closeFunction := func() {
 			app.SetInputCapture(inputCaptureFunction)
 			app.SetRoot(flex, true)
 			app.SetFocus(flex.GetItem(0))
 		}
-
-		form := ui.CreateActionForm(text,
-			func() {
-				deploy(text, text, pages, closeFunction)
-			},
-			func() {
-				restart(text, pages, closeFunction)
-			},
-			func() {
-				closeFunction()
-			})
-
-		form.SetBorder(true).SetTitle("What do you want to do?").SetTitleAlign(tview.AlignLeft)
-
-		pages = ui.CreateModalPage(form, flex, 60, 5, "ask")
+		pages := tview.NewPages()
+		createActionForm(*ref.FunctionName, ref.Architectures[0], pages, closeFunction)
 
 		app.SetInputCapture(nil)
 		app.SetRoot(pages, true)
@@ -87,7 +72,7 @@ func (l *LambdasPage) Render(accountData *data.AccountData) {
 	}
 
 	data := lo.Map(lambdaData, func(function types.FunctionConfiguration, index int) []string {
-		modified, _ := time.Parse(time.RFC3339, *function.LastModified)
+		modified, _ := time.Parse("2006-01-02T15:04:05.9Z0700", *function.LastModified)
 		return []string{
 			*function.FunctionName,
 			string(function.Runtime),
@@ -95,6 +80,7 @@ func (l *LambdasPage) Render(accountData *data.AccountData) {
 			fmt.Sprintf("%s b", utils.I32ToString(*function.MemorySize)),
 			fmt.Sprintf("%s s", utils.I32ToString(*function.Timeout)),
 			string(function.Architectures[0]),
+			//*function.LastModified,
 			utils.FormatLocalDateTime(modified),
 		}
 	})
@@ -103,6 +89,11 @@ func (l *LambdasPage) Render(accountData *data.AccountData) {
 
 	ui.AddTableConfigData(l.tableInfo, 1, data, tcell.ColorWhite)
 
+	// set reference to service
+	for i := 1; i < len(lambdaData)+1; i++ {
+		cell := l.tableInfo.Table.GetCell(i, 1)
+		cell.SetReference(lambdaData[i-1])
+	}
 }
 
 func (l *LambdasPage) Name() string {

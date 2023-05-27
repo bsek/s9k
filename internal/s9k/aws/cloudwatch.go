@@ -30,7 +30,7 @@ func init() {
 	cloudwatchMetricsClient = cloudwatch.NewFromConfig(cfg)
 }
 
-func FetchLogStreams(logGroupName string, containerName, taskArn string) ([]types.LogStream, error) {
+func listLogStreams(logGroupName string) ([]types.LogStream, error) {
 	ctx := context.Background()
 
 	input := cloudwatchlogs.DescribeLogStreamsInput{
@@ -46,11 +46,41 @@ func FetchLogStreams(logGroupName string, containerName, taskArn string) ([]type
 		return nil, err
 	}
 
+	return output.LogStreams, nil
+}
+
+func FetchLambdaLogStreams(logGroupName string) ([]types.LogStream, error) {
+	logStreams, err := listLogStreams(logGroupName)
+	if err != nil {
+		return nil, err
+	}
+
+	threeDaysAgo := time.Now().Add(time.Duration(-3) * time.Hour * 24).Unix()
+
+	events := lo.Filter(logStreams, func(item types.LogStream, index int) bool {
+		if *item.LastEventTimestamp > (threeDaysAgo * 1000) {
+			return true
+		}
+
+		return false
+	})
+
+	log.Info().Msgf("Found %d logstreams", len(events))
+
+	return events, nil
+}
+
+func FetchLogStreams(logGroupName string, containerName, taskArn string) ([]types.LogStream, error) {
+	logStreams, err := listLogStreams(logGroupName)
+	if err != nil {
+		return nil, err
+	}
+
 	threeDaysAgo := time.Now().Add(time.Duration(-3) * time.Hour * 24).Unix()
 
 	log.Info().Msgf("Looking for logstreams with %s and %s in name", utils.RemoveAllBeforeLastChar("/", taskArn), containerName)
 
-	events := lo.Filter(output.LogStreams, func(item types.LogStream, index int) bool {
+	events := lo.Filter(logStreams, func(item types.LogStream, index int) bool {
 		if *item.LastEventTimestamp > (threeDaysAgo * 1000) {
 			return strings.Contains(*item.LogStreamName, utils.RemoveAllBeforeLastChar("/", taskArn)) && strings.Contains(*item.LogStreamName, containerName)
 		}
@@ -66,10 +96,13 @@ func FetchLogStreams(logGroupName string, containerName, taskArn string) ([]type
 func FetchCloudwatchLogs(logGroupName, logStreamName string) ([][]types.OutputLogEvent, error) {
 	ctx := context.Background()
 
+	threeDaysAgo := time.Now().Add(time.Duration(-3) * time.Hour * 24)
+
 	logEventsInput := cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(logGroupName),
 		LogStreamName: aws.String(logStreamName),
 		StartFromHead: aws.Bool(false),
+		StartTime:     aws.Int64(threeDaysAgo.Unix() * 1000),
 	}
 
 	outputList := [][]types.OutputLogEvent{}

@@ -7,12 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/bsek/s9k/internal/s9k/data"
 	"github.com/bsek/s9k/internal/s9k/github"
-	"github.com/bsek/s9k/internal/s9k/logs"
 	"github.com/bsek/s9k/internal/s9k/ui"
 	"github.com/bsek/s9k/internal/s9k/utils"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 )
 
@@ -37,7 +35,7 @@ func NewServicesPage(app *tview.Application, flex *tview.Flex) *ServicePage {
 	servicesTable.SetSelectedFunc(func(row, column int) {
 		cell := servicesTable.GetCell(row, 1)
 		serviceName := cell.Text
-		service := cell.Reference.(types.Service)
+		service := cell.Reference.(data.ServiceData)
 		inputCaptureFunction := app.GetInputCapture()
 
 		closeFunction := func() {
@@ -47,15 +45,15 @@ func NewServicesPage(app *tview.Application, flex *tview.Flex) *ServicePage {
 		}
 
 		deployFunction := func(version string) {
-			deploy(utils.RemoveAllBeforeLastChar("/", *service.ClusterArn), serviceName, version, pages)
+			deploy(utils.RemoveAllBeforeLastChar("/", *service.Service.ClusterArn), serviceName, version, pages)
 		}
 
 		restartFunction := func() {
 			restart(serviceName, pages)
 		}
 
-		actionsFunc := func(task *types.Task, containerName string) {
-			action(*task.TaskArn, serviceName, containerName, pages, app)
+		actionsFunc := func(task *types.Task, container data.Container) {
+			action(*task.TaskArn, serviceName, container, pages, app)
 		}
 
 		detailsPage := NewServiceDetailsPage(app, &service, deployFunction, restartFunction, actionsFunc, closeFunction)
@@ -92,33 +90,6 @@ func retrieveListOfECSDeployables(serviceName string) []string {
 	return list
 }
 
-func getLogGroupName(pageName, selection string) string {
-	var prefix string
-
-	switch pageName {
-	case "Lambda functions":
-		prefix = "/aws/lambda"
-	case "Services":
-		prefix = "/ecs"
-	}
-
-	return fmt.Sprintf("%s/%s", prefix, selection)
-}
-
-func showLogs(taskArn, serviceName, containerName string, pages *tview.Pages) {
-	logGroupName := getLogGroupName("Services", serviceName)
-
-	log.Info().Msgf("Found log group name: %s", logGroupName)
-
-	closeFunc := func() {
-		pages.RemovePage("logs")
-	}
-
-	logPage := logs.NewLogPage(logGroupName, taskArn, containerName, closeFunc)
-
-	pages.AddAndSwitchToPage("logs", logPage.Flex, true)
-}
-
 func (p *ServicePage) Table() *tview.Table {
 	return p.servicesTableInfo.Table
 }
@@ -138,7 +109,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 
 	serviceData := lo.Map(clusterData.Services, func(service data.ServiceData, index int) []string {
 
-		serviceImages := service.Tasks
+		containers := service.Containers
 
 		deployTimeTxt := "n/a"
 		deployStatus := ""
@@ -146,7 +117,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 			deployTimeTxt = utils.FormatLocalDateTime(*service.Service.Deployments[0].CreatedAt)
 			for _, v := range service.Service.Deployments {
 				if *v.Status == "PRIMARY" {
-					deployStatus = *v.RolloutStateReason
+					deployStatus = string(*(&v.RolloutState))
 				}
 			}
 		}
@@ -161,8 +132,10 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 
 		return []string{
 			*service.Service.ServiceName,
-			utils.RemoveAllRegex(`.*/`, *service.Service.TaskDefinition),
-			strings.Join(serviceImages, ","),
+			utils.RemoveAllBeforeLastChar("/", *service.Service.TaskDefinition),
+			strings.Join(lo.Map(containers, func(value data.Container, _ int) string {
+				return value.Image
+			}), ","),
 			utils.LowerTitle(*service.Service.Status),
 			deployTimeTxt,
 			deployStatus,
@@ -177,6 +150,6 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 	// set reference to service
 	for i := 1; i < len(clusterData.Services)+1; i++ {
 		cell := p.servicesTableInfo.Table.GetCell(i, 1)
-		cell.SetReference(clusterData.Services[i-1].Service)
+		cell.SetReference(clusterData.Services[i-1])
 	}
 }

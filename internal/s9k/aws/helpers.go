@@ -36,6 +36,8 @@ var ecsClient *ecs.Client
 var s3Client *s3.Client
 var lambdaClient *lambda.Client
 
+const S3_BUCKET_NAME = "skjema-qa-deployment-bucket"
+
 func init() {
 	cfg, _ := config.LoadDefaultConfig(context.TODO())
 
@@ -48,8 +50,8 @@ func RestartECSService(clusterName, name string) error {
 	return awsecs.StopEcsService(context.Background(), ecsClient, name, clusterName)
 }
 
-func FetchAvailableVersions(name, functionName string) ([]Version, error) {
-	files, err := awss3.ListBucketObjects(context.Background(), s3Client, "skjema-qa-deployment-bucket", functionName)
+func FetchAvailableVersions(functionName string) ([]Version, error) {
+	files, err := awss3.ListBucketObjects(context.Background(), s3Client, S3_BUCKET_NAME, functionName)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +85,13 @@ func GetFunctionDescription(functionName string) (*string, error) {
 // Update lambda function description
 func UpdateLambdaFunctionDescription(functionName, newDescription string) error {
 	return awslambda.UpdateFunctionDescription(context.Background(), lambdaClient, functionName, newDescription)
+}
+
+// Deploy lambda function
+func DeployLambdaFunction(functionName, version string, arch lambdatypes.Architecture) error {
+	_, err := awslambda.UpdateFunctionCode(context.Background(), lambdaClient, functionName, S3_BUCKET_NAME, version, arch)
+	return err
+
 }
 
 // Return a slice of all clusters in the account
@@ -182,5 +191,5 @@ func GetTaskDefinitions(taskDefinitionArns []string) ([]types.TaskDefinition, er
 
 // Return a short version of the task definition arn
 func ShortenTaskDefArn(taskDefinitionArn *string) string {
-	return utils.RemoveAllRegex(`.*/`, *taskDefinitionArn)
+	return utils.RemoveAllBeforeLastChar("/", *taskDefinitionArn)
 }

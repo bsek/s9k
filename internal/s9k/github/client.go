@@ -3,9 +3,9 @@ package github
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/bsek/s9k/internal/s9k/utils"
 	"github.com/google/go-github/v50/github"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
@@ -27,7 +27,7 @@ type Package struct {
 func CreateClient(token string) {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: utils.RemoveAllRegex("\n", token)},
+		&oauth2.Token{AccessToken: strings.ReplaceAll(token, "\n", "")},
 	)
 	tc := oauth2.NewClient(ctx, ts)
 

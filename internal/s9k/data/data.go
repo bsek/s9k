@@ -16,8 +16,8 @@ import (
 
 // Stores information about an AWS services and functions
 type ServiceData struct {
-	Service ecsTypes.Service
-	Tasks   []string
+	Service    *ecsTypes.Service
+	Containers []Container
 }
 
 type ECSClusterData struct {
@@ -29,6 +29,12 @@ type AccountData struct {
 	Cluster   ecsTypes.Cluster
 	*ECSClusterData
 	Refreshed time.Time
+}
+
+type Container struct {
+	Name            string
+	Image           string
+	LogStreamPrefix string
 }
 
 const maxImageWidth = 50
@@ -97,15 +103,25 @@ func loadECSClusterData(clusterName string) *ECSClusterData {
 
 	serviceDataList := make([]ServiceData, 0, len(services))
 
-	for _, v := range services {
-		taskDefintion := taskDefinitionArnLookup[*v.TaskDefinition]
-		tasks := lo.Map(taskDefintion.ContainerDefinitions, func(value ecsTypes.ContainerDefinition, index int) string {
-			return utils.TakeLeft(utils.RemoveAllRegex(`.*/`, *value.Image), maxImageWidth)
+	for i := range services {
+		service := services[i]
+		taskDefintion := taskDefinitionArnLookup[*service.TaskDefinition]
+
+		containers := lo.Map(taskDefintion.ContainerDefinitions, func(value ecsTypes.ContainerDefinition, index int) Container {
+			container := Container{
+				Name:            *value.Name,
+				Image:           utils.TakeLeft(utils.RemoveAllBeforeLastChar("/", *value.Image), maxImageWidth),
+				LogStreamPrefix: value.LogConfiguration.Options["awslogs-stream-prefix"],
+			}
+
+			log.Info().Msgf("Found container: %v", container)
+
+			return container
 		})
 
 		data := ServiceData{
-			Service: v,
-			Tasks:   tasks,
+			Service:    &service,
+			Containers: containers,
 		}
 
 		serviceDataList = append(serviceDataList, data)

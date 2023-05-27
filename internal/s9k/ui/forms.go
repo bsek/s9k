@@ -10,19 +10,3 @@ func CreateInstallForm(functionName string, deployables []string, selected func(
 
 	return form
 }
-
-func CreateActionForm(functionName string, deploy func(), restart func(), quit func()) *tview.Form {
-	form := tview.NewForm().
-		AddButton("Deploy specific version", deploy).
-		AddButton("Restart service", restart).
-		AddButton("Close", quit)
-	return form
-}
-
-func CreateTaskForm(logs func(), shell func(), quit func()) *tview.Form {
-	form := tview.NewForm().
-		AddButton("Show logs", logs).
-		AddButton("Open shell", shell).
-		AddButton("Close", quit)
-	return form
-}
