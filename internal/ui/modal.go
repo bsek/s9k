@@ -41,7 +41,6 @@ func CreateMessageBox(content string) {
 			App.Content.RemovePage(MESSAGE_BOX)
 		})
 
-	RemoveFrontPage(App.Content)
 	App.Content.AddAndSwitchToPage(MESSAGE_BOX, modal, true)
 }
 

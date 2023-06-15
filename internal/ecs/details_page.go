@@ -20,8 +20,9 @@ import (
 var _ ui.ContentPage = (*ServiceDetailPage)(nil)
 
 type ServiceDetailPage struct {
-	Flex      *tview.Flex
-	closeFunc func()
+	Flex        *tview.Flex
+	CurrentItem int
+	closeFunc   func()
 }
 
 func (s *ServiceDetailPage) SetCloseFunc(closeFunc func()) {
@@ -35,7 +36,7 @@ func (*ServiceDetailPage) Shortcut() rune {
 
 // SetFocus implements ui.ContextPage.
 func (s *ServiceDetailPage) SetFocus(app *tview.Application) {
-	app.SetFocus(s.Flex)
+	app.SetFocus(s.Flex.GetItem(s.CurrentItem))
 }
 
 // ContextView implements ui.TablePage.
@@ -48,8 +49,7 @@ func (*ServiceDetailPage) ContextView() tview.Primitive {
 	bw := tw.BatchWriter()
 	defer bw.Close()
 
-	fmt.Fprintln(bw, "[bold]d [darkcyan::-]deployables")
-	fmt.Fprintln(bw, "[bold]c [darkcyan::-]containers")
+	fmt.Fprintln(bw, "[bold]tab [darkcyan::-]select view")
 	fmt.Fprintln(bw, "")
 	fmt.Fprintln(bw, "[bold]r [darkcyan::-]restart service")
 	fmt.Fprintln(bw, "")
@@ -82,7 +82,8 @@ func NewServiceDetailsPage(inputData *data.ServiceData, deployFunc func(version 
 		AddItem(createDeployablesTable(inputData.Service, deployFunc), 0, 3, false)
 
 	page := &ServiceDetailPage{
-		Flex: flex,
+		Flex:        flex,
+		CurrentItem: 1,
 	}
 
 	handler := page.createInputHandler(flex, restartFunc)
@@ -97,19 +98,12 @@ func (s *ServiceDetailPage) createInputHandler(flex *tview.Flex, restartFunc fun
 		app := ui.App
 
 		if event.Key() == tcell.KeyTab {
-
+			s.CurrentItem = (s.CurrentItem % (s.Flex.GetItemCount() - 1)) + 1
+			app.TviewApp.SetFocus(s.Flex.GetItem(s.CurrentItem))
 		}
 
 		if event.Key() == tcell.KeyRune {
 			key := event.Rune()
-
-			if key == 'c' || key == 'C' {
-				app.TviewApp.SetFocus(flex.GetItem(1))
-			}
-
-			if key == 'd' || key == 'D' {
-				app.TviewApp.SetFocus(flex.GetItem(2))
-			}
 
 			if key == 'r' || key == 'R' {
 				restartFunc()

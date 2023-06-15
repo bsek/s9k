@@ -76,7 +76,9 @@ func (l *LogPage) inputHandler(event *tcell.EventKey) *tcell.EventKey {
 
 		if key == 'x' || key == 'X' {
 			logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
-			logStreamPage.End()
+			if logStreamPage != nil {
+				logStreamPage.End()
+			}
 			l.closefunc()
 		}
 	}
@@ -111,9 +113,11 @@ func (l *LogPage) buildUI() {
 	l.logStreamPagesIndex = make(map[string]*LogStreamPage, len(l.streams))
 
 	if len(l.streams) == 0 {
-		ui.CreateMessageBox(fmt.Sprintf("Could not find any logstreams for LogGroupName %s", l.logGroupName))
+		text := tview.NewTextView().SetText("No log streams found...")
+		l.Flex.
+			SetDirection(tview.FlexRow).
+			AddItem(text, 0, 1, false)
 	} else {
-
 		for i, v := range l.streams {
 			p := NewLogStreamPage(l.logGroupName, v, i == 0)
 			l.logStreamPagesIndex[fmt.Sprintf("F%d", i+1)] = p
@@ -136,7 +140,7 @@ func buildContextMenu(streams []string) *tview.Flex {
 
 	pageCommands := make([]string, 0)
 	for index, stream := range streams {
-		pageCommands = append(pageCommands, fmt.Sprintf(`[bold]F%d ["%d"][darkcyan]%s[white][""]`, index+1, index+1, stream))
+		pageCommands = append(pageCommands, fmt.Sprintf(`[white::b]F%d ["%d"][darkcyan]%s[white][""]`, index+1, index+1, stream))
 	}
 	sort.Strings(pageCommands)
 
@@ -151,10 +155,10 @@ func buildContextMenu(streams []string) *tview.Flex {
 
 	bw := configBar.BatchWriter()
 
-	fmt.Fprintln(bw, "[bold]w [darkcyan::-]wrap")
-	fmt.Fprintln(bw, "[bold]f [darkcyan::-]follow")
+	fmt.Fprintln(bw, "[white::b]w [darkcyan::-]wrap")
+	fmt.Fprintln(bw, "[white::b]f [darkcyan::-]follow")
 	fmt.Fprintln(bw, "")
-	fmt.Fprintln(bw, "[bold]x [darkcyan::-]close")
+	fmt.Fprintln(bw, "[white::b]x [darkcyan::-]close")
 
 	bw.Close()
 	/*	fmt.Fprintln(configBar, "[bold]0 [darkcyan::-]1m")
@@ -162,7 +166,7 @@ func buildContextMenu(streams []string) *tview.Flex {
 		fmt.Fprintln(configBar, "[bold]2 [darkcyan::-]15m")
 		fmt.Fprintln(configBar, "[bold]3 [darkcyan::-]30m")
 	*/
-	flex.AddItem(streamBar, 0, 2, false)
+	flex.AddItem(streamBar, 0, 4, false)
 	flex.AddItem(configBar, 0, 1, false)
 
 	return flex
@@ -181,7 +185,11 @@ func (l *LogPage) Render(accountData *data.AccountData) {
 }
 
 func (l *LogPage) SetFocus(app *tview.Application) {
-	app.SetFocus(l.Flex)
+	if l.Flex.GetItemCount() > 0 {
+		app.SetFocus(l.Flex.GetItem(0))
+	} else {
+		app.SetFocus(l.Flex)
+	}
 }
 
 func (l *LogPage) Shortcut() rune {

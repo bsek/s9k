@@ -54,10 +54,10 @@ func FetchLambdaLogStreams(logGroupName string) ([]types.LogStream, error) {
 		return nil, err
 	}
 
-	threeDaysAgo := time.Now().Add(time.Duration(-3) * time.Hour * 24).Unix()
+	thirtyMinutesAgo := time.Now().Add(time.Minute * -30).Unix()
 
 	events := lo.Filter(logStreams, func(item types.LogStream, index int) bool {
-		if *item.LastEventTimestamp > (threeDaysAgo * 1000) {
+		if *item.LastEventTimestamp > (thirtyMinutesAgo * 1000) {
 			return true
 		}
 
@@ -101,7 +101,7 @@ func FetchCloudwatchLogs(logGroupName, logStreamName string, nextForwardToken *s
 
 	startTime := time.Now().Add(-interval)
 
-	log.Debug().Msgf("Looking for logs greater than: %s", utils.FormatLocalDateTime(startTime))
+	log.Debug().Msgf("Looking for logs greater than: %s and %d", utils.FormatLocalDateTime(startTime), startTime.Unix()*1000)
 
 	logEventsInput := cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(logGroupName),
@@ -117,6 +117,8 @@ func FetchCloudwatchLogs(logGroupName, logStreamName string, nextForwardToken *s
 	for {
 		if nextToken != nil {
 			logEventsInput.NextToken = nextToken
+			// per GetLogEventsInput documentation, this is required if using a previous aquired nextForwardToken
+			logEventsInput.StartFromHead = aws.Bool(true)
 		}
 
 		logEventsOutput, err = cloudwatchClient.GetLogEvents(ctx, &logEventsInput)
