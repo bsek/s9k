@@ -20,21 +20,6 @@ type LambdasPage struct {
 	header *tview.TextView
 }
 
-// Shortcut implements ui.ContentPage.
-func (*LambdasPage) Shortcut() rune {
-	return '2'
-}
-
-// SetFocus implements ui.ContextPage.
-func (l *LambdasPage) SetFocus(app *tview.Application) {
-	app.SetFocus(l.table)
-}
-
-// View implements ui.ContextPage.
-func (l *LambdasPage) View() tview.Primitive {
-	return l.table
-}
-
 const name = "Lambda functions"
 
 func NewLambdasPage() *LambdasPage {
@@ -101,4 +86,16 @@ func (l *LambdasPage) Name() string {
 
 func (l *LambdasPage) ContextView() tview.Primitive {
 	return l.header
+}
+
+func (*LambdasPage) Shortcut() rune {
+	return '2'
+}
+
+func (l *LambdasPage) SetFocus(app *tview.Application) {
+	app.SetFocus(l.table)
+}
+
+func (l *LambdasPage) View() tview.Primitive {
+	return l.table
 }

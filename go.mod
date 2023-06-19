@@ -2,8 +2,6 @@ module github.com/bsek/s9k
 
 go 1.20
 
-replace github.com/oslokommune/skjema-bibliotek-commons-go/aws => ../../oksrc/skjema-bibliotek-commons-go/aws/
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.18.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
@@ -11,12 +9,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.20.10
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.26.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10
 	github.com/creack/pty v1.1.18
 	github.com/gdamore/tcell/v2 v2.6.0
-	github.com/oslokommune/skjema-bibliotek-commons-go/aws v0.2.5
+	github.com/oslokommune/skjema-bibliotek-commons-go/aws v0.2.6
 	github.com/rs/zerolog v1.27.0
 	github.com/samber/lo v1.38.1
 	golang.org/x/oauth2 v0.7.0
+	golang.org/x/term v0.7.0
 )
 
 require (
@@ -35,7 +35,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.14.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.12.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.18.10 // indirect
 	github.com/cloudflare/circl v1.1.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -45,13 +44,13 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/oslokommune/skjema-bibliotek-commons-go/lambdaruntime v0.0.0-20220822170034-af598fb4e712 // indirect
+	github.com/oslokommune/skjema-bibliotek-commons-go/lambdaruntime v0.2.4 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect

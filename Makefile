@@ -3,13 +3,13 @@ BINARY_NAME=s9k
 all: build
 
 build:
-		go build -o bin/${BINARY_NAME} cmd/s9k/s9k.go
+		go build -o bin/${BINARY_NAME} cmd/${BINARY_NAME}/${BINARY_NAME}.go
  
 run:
-		go run cmd/s9k/s9k.go
+		go run cmd/${BINARY_NAME}/${BINARY_NAME}.go
 
 install:
-		go install cmd/s9k/s9k.go
+		go install cmd/${BINARY_NAME}/${BINARY_NAME}.go
 
 clean:
 		go clean
