@@ -14,7 +14,7 @@ func showLogs(functionName string) {
 
 	log.Debug().Msgf("Looking for logs for log group name: %s", logGroupName)
 
-	logStreams, err := aws.FetchLambdaLogStreams(logGroupName)
+	logStreams, err := aws.FetchLogStreams(logGroupName, nil, nil)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to load logStreams for function: %s", functionName)
 		ui.CreateMessageBox("Failed to read log records, see log for more information.")

@@ -16,7 +16,7 @@ func showLogs(taskArn, serviceName string, container data.Container) {
 	log.Info().Msgf("Using container: %v", container)
 	log.Info().Msgf("Looking for logs for log group name: %s and prefix: %s", logGroupName, container.LogStreamPrefix)
 
-	logStreams, err := aws.FetchLogStreams(logGroupName, container.LogStreamPrefix, taskArn)
+	logStreams, err := aws.FetchLogStreams(logGroupName, &container.LogStreamPrefix, &taskArn)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to load log streams for service %s and container %s", serviceName, container.LogStreamPrefix)
 		return

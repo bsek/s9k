@@ -8,15 +8,20 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	awscloudwatchlogstypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/oslokommune/skjema-bibliotek-commons-go/aws/awsecs"
-	"github.com/oslokommune/skjema-bibliotek-commons-go/aws/awslambda"
-	"github.com/oslokommune/skjema-bibliotek-commons-go/aws/awss3"
+	awscloudwatch "github.com/oslokommune/common-lib-go/aws/awscloudwatch"
+	"github.com/oslokommune/common-lib-go/aws/awsecs"
+	"github.com/oslokommune/common-lib-go/aws/awslambda"
+	"github.com/oslokommune/common-lib-go/aws/awss3"
+	"github.com/rs/zerolog/log"
 
 	"github.com/bsek/s9k/internal/utils"
 )
@@ -38,11 +43,13 @@ type LogItem struct {
 const S3_BUCKET_VAR_NAME = "S3_DEPLOYMENT_BUCKET_NAME"
 
 var (
-	ecsClient      *ecs.Client
-	s3Client       *s3.Client
-	stsClient      *sts.Client
-	lambdaClient   *lambda.Client
-	s3_bucket_name string
+	ecsClient            *ecs.Client
+	s3Client             *s3.Client
+	stsClient            *sts.Client
+	lambdaClient         *lambda.Client
+	cloudwatchClient     *cloudwatch.Client
+	cloudwatchLogsClient *cloudwatchlogs.Client
+	s3_bucket_name       string
 )
 
 func init() {
@@ -56,10 +63,51 @@ func init() {
 
 	s3_bucket_name = value
 
+	// configures clients
 	ecsClient = ecs.NewFromConfig(cfg)
 	lambdaClient = lambda.NewFromConfig(cfg)
 	s3Client = s3.NewFromConfig(cfg)
 	stsClient = sts.NewFromConfig(cfg)
+	cloudwatchClient = cloudwatch.NewFromConfig(cfg)
+	cloudwatchLogsClient = cloudwatchlogs.NewFromConfig(cfg)
+}
+
+// FetchCpuAndMemoryUsage reads memory and cpu usage from cloudwatch metrics for a given ECS service. Service and cluster name must be provided.
+func FetchCpuAndMemoryUsage(serviceName, clusterName string) (memoryUtilized uint32, memoryReserved uint32, cpuUtilized uint32, cpuReserved uint32, err error) {
+	memoryUtilized, memoryReserved, cpuUtilized, cpuReserved, err = awscloudwatch.FetchCpuAndMemoryUsage(context.TODO(), serviceName, clusterName, cloudwatchClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve metrics for ecs service")
+	}
+	return
+}
+
+// FetchLogStreams fetches log streams for a given log group. If container and taskArn is provided, it is used to filter the returned result.
+func FetchLogStreams(logGroupName string, container, taskArn *string) ([]awscloudwatchlogstypes.LogStream, error) {
+	task := new(string)
+
+	if taskArn != nil {
+		shortTask := utils.RemoveAllBeforeLastChar("/", *taskArn)
+		task = &shortTask
+	}
+
+	output, err := awscloudwatch.FetchLogStreams(context.Background(), logGroupName, container, task, cloudwatchLogsClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read logstreams from cloudwatch")
+		return nil, err
+	}
+
+	return output, err
+}
+
+// FetchCloudwatchLogs fetches log records from cloudwatch. If a nextForwardToken is provided, it will be used to in the query to cloudwatch, if not, it starts from scratch
+func FetchCloudwatchLogs(logGroupName, logStreamName string, nextForwardToken *string, interval time.Duration) (outputList [][]awscloudwatchlogstypes.OutputLogEvent, nextToken *string, err error) {
+	outputList, nextToken, err = awscloudwatch.FetchCloudwatchLogs(context.TODO(), logGroupName, logStreamName, nextForwardToken, interval, cloudwatchLogsClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read log records from cloudwatch")
+		return
+	}
+
+	return
 }
 
 // GetAccountInformation returns information about the logged in account

@@ -48,6 +48,7 @@ func NewLogPage(logGroupName string, logStreams []types.LogStream) *LogPage {
 	}
 
 	flex.SetInputCapture(logPage.inputHandler)
+
 	return logPage
 }
 
