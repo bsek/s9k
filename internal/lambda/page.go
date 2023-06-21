@@ -15,12 +15,11 @@ import (
 var _ ui.ContentPage = (*LambdasPage)(nil)
 
 type LambdasPage struct {
-	name   string
-	table  *tview.Table
-	header *tview.TextView
+	name  string
+	table *tview.Table
 }
 
-const name = "Lambda functions"
+const name = "functions"
 
 func NewLambdasPage() *LambdasPage {
 	lambdasTable := tview.NewTable()
@@ -38,9 +37,8 @@ func NewLambdasPage() *LambdasPage {
 	})
 
 	return &LambdasPage{
-		name:   name,
-		table:  lambdasTable,
-		header: tview.NewTextView(),
+		name:  name,
+		table: lambdasTable,
 	}
 }
 
@@ -85,11 +83,17 @@ func (l *LambdasPage) Name() string {
 }
 
 func (l *LambdasPage) ContextView() tview.Primitive {
-	return l.header
-}
+	tw := tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(false).
+		SetWrap(false)
 
-func (*LambdasPage) Shortcut() rune {
-	return '2'
+	bw := tw.BatchWriter()
+	defer bw.Close()
+
+	fmt.Fprintln(bw, "[white::b]Enter [darkcyan::-]Select")
+
+	return tw
 }
 
 func (l *LambdasPage) SetFocus(app *tview.Application) {
@@ -98,4 +102,12 @@ func (l *LambdasPage) SetFocus(app *tview.Application) {
 
 func (l *LambdasPage) View() tview.Primitive {
 	return l.table
+}
+
+func (l *LambdasPage) Close() {
+	l.Close()
+}
+
+func (l *LambdasPage) IsPersistent() bool {
+	return true
 }

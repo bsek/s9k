@@ -11,7 +11,7 @@ type Application struct {
 	TviewApp    *tview.Application
 	Layout      *tview.Flex
 	Content     *tview.Pages
-	ContentMap  map[int32]ContentPage
+	ContentMap  map[string]ContentPage
 	HeaderBar   *Header
 	AccountData *data.AccountData
 }
@@ -30,6 +30,7 @@ type ContentPage interface {
 	Name() string
 	View() tview.Primitive
 	ContextView() tview.Primitive
-	Shortcut() rune
+	Close()
 	SetFocus(app *tview.Application)
+	IsPersistent() bool
 }

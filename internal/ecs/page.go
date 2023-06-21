@@ -24,21 +24,6 @@ type ServicePage struct {
 	inputCapture  func()
 }
 
-// Shortcut implements ui.ContentPage.
-func (*ServicePage) Shortcut() rune {
-	return '1'
-}
-
-// SetFocus implements ui.ContextPage.
-func (s *ServicePage) SetFocus(app *tview.Application) {
-	app.SetFocus(s.servicesTable)
-}
-
-// View implements ui.ContextPage.
-func (s *ServicePage) View() tview.Primitive {
-	return s.servicesTable
-}
-
 // Returns a page that displays the services in a cluster
 func NewServicesPage() *ServicePage {
 	servicesTable := tview.NewTable()
@@ -67,12 +52,6 @@ func NewServicesPage() *ServicePage {
 
 		detailsPage := NewServiceDetailsPage(&service, deployFunction, restartFunction, actionsFunc)
 
-		closeFunc := func() {
-			ui.App.RemoveContent(detailsPage)
-		}
-
-		detailsPage.SetCloseFunc(closeFunc)
-
 		ui.App.RegisterContent(detailsPage)
 		ui.App.ShowPage(detailsPage)
 	})
@@ -88,7 +67,7 @@ func createHelpText() *tview.TextView {
 	tw := tview.NewTextView()
 	tw.SetDynamicColors(true).SetWrap(false)
 
-	fmt.Fprintln(tw, "[bold]Enter [darkcyan::-]action")
+	fmt.Fprintln(tw, "[::b]Enter [darkcyan::-]action")
 
 	return tw
 }
@@ -155,16 +134,15 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 			*service.Service.ServiceName,
 			utils.RemoveAllBeforeLastChar("/", *service.Service.TaskDefinition),
 			image,
-			utils.LowerTitle(*service.Service.Status),
 			deployTimeTxt,
 			deployStatus,
 			taskCount,
 		}
 	})
 
-	alignment := []int{tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignRight}
-	expansions := []int{1, 1, 1, 2, 1, 1, 1, 1, 1}
-	headers := []string{"#", "Name ▾", "TaskDef", "Images", "Status", "Last Deployed", "Deployment status", "Tasks"}
+	alignment := []int{tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignRight}
+	expansions := []int{1, 1, 1, 2, 1, 1, 1, 1}
+	headers := []string{"#", "Name ▾", "TaskDef", "Images", "Last Deployed", "Deployment status", "Tasks"}
 
 	ui.PrependRowNumColumn(serviceData)
 	ui.AddTableData(p.servicesTable, headers, serviceData, alignment, expansions, tcell.ColorWhite, true)
@@ -174,4 +152,19 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 		cell := p.servicesTable.GetCell(i, 1)
 		cell.SetReference(clusterData.Services[i-1])
 	}
+}
+
+func (s *ServicePage) SetFocus(app *tview.Application) {
+	app.SetFocus(s.servicesTable)
+}
+
+func (s *ServicePage) View() tview.Primitive {
+	return s.servicesTable
+}
+
+func (s *ServicePage) IsPersistent() bool {
+	return true
+}
+
+func (s *ServicePage) Close() {
 }

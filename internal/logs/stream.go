@@ -101,7 +101,7 @@ func (p *LogStreamPage) createTitle(length int) string {
 	title := fmt.Sprintf(" %s (%d rows", p.StreamName, length)
 
 	if p.follow {
-		title = fmt.Sprintf(`%s, follow`, title)
+		title = fmt.Sprintf(`%s, tail`, title)
 	}
 	if p.wrap {
 		title = fmt.Sprintf(`%s, wrap`, title)

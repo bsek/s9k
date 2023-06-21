@@ -40,7 +40,7 @@ func (h *Header) UpdateRefreshTime(when time.Time) {
 	h.RefreshTime = when
 }
 
-func (h *Header) Render(pagesMap map[int32]ContentPage) {
+func (h *Header) Render(contentMap map[string]ContentPage) {
 	h.Layout.Clear()
 
 	logoView := tview.NewTextView().
@@ -58,8 +58,10 @@ func (h *Header) Render(pagesMap map[int32]ContentPage) {
 		SetWrap(false)
 
 	pageCommands := make([]string, 0)
-	for key, page := range pagesMap {
-		pageCommands = append(pageCommands, fmt.Sprintf(`[white::b]%c ["%c"][darkcyan::]View %s[""]`, key, key, page.Name()))
+	for key, page := range contentMap {
+		if page.IsPersistent() {
+			pageCommands = append(pageCommands, fmt.Sprintf(`[white::b]%s ["%s"][darkcyan::-]View %s[""]`, key, key, page.Name()))
+		}
 	}
 	sort.Strings(pageCommands)
 

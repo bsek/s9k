@@ -52,10 +52,6 @@ func NewLogPage(logGroupName string, logStreams []types.LogStream) *LogPage {
 	return logPage
 }
 
-func (l *LogPage) SetCloseFunc(closeFunc func()) {
-	l.closefunc = closeFunc
-}
-
 func (l *LogPage) inputHandler(event *tcell.EventKey) *tcell.EventKey {
 	if l.selectLogStreamPageByIndex(event.Key()) {
 		return event
@@ -65,7 +61,7 @@ func (l *LogPage) inputHandler(event *tcell.EventKey) *tcell.EventKey {
 
 		key := event.Rune()
 
-		if key == 'f' || key == 'F' {
+		if key == 't' || key == 'T' {
 			logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
 			logStreamPage.SwitchFollow()
 		}
@@ -73,14 +69,6 @@ func (l *LogPage) inputHandler(event *tcell.EventKey) *tcell.EventKey {
 		if key == 'w' || key == 'W' {
 			logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
 			logStreamPage.SwitchWrap()
-		}
-
-		if key == 'x' || key == 'X' {
-			logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
-			if logStreamPage != nil {
-				logStreamPage.End()
-			}
-			l.closefunc()
 		}
 	}
 
@@ -157,9 +145,7 @@ func buildContextMenu(streams []string) *tview.Flex {
 	bw := configBar.BatchWriter()
 
 	fmt.Fprintln(bw, "[white::b]w [darkcyan::-]wrap")
-	fmt.Fprintln(bw, "[white::b]f [darkcyan::-]follow")
-	fmt.Fprintln(bw, "")
-	fmt.Fprintln(bw, "[white::b]x [darkcyan::-]close")
+	fmt.Fprintln(bw, "[white::b]t [darkcyan::-]tail")
 
 	bw.Close()
 	/*	fmt.Fprintln(configBar, "[bold]0 [darkcyan::-]1m")
@@ -193,10 +179,18 @@ func (l *LogPage) SetFocus(app *tview.Application) {
 	}
 }
 
-func (l *LogPage) Shortcut() rune {
-	return '4'
+func (l *LogPage) IsPersistent() bool {
+	return false
 }
 
 func (l *LogPage) View() tview.Primitive {
 	return l.Flex
+}
+
+func (l *LogPage) Close() {
+	log.Debug().Msgf("Trying to close log stream...")
+	logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
+	if logStreamPage != nil {
+		logStreamPage.End()
+	}
 }

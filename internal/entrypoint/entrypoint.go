@@ -42,10 +42,12 @@ func Entrypoint() {
 	servicesPage := ecs.NewServicesPage()
 	lambdasPage := lambda.NewLambdasPage()
 
+	ui.App.BuildApplicationUI()
+
 	ui.App.RegisterContent(servicesPage)
 	ui.App.RegisterContent(lambdasPage)
 
-	ui.App.BuildApplicationUI()
+	ui.App.ShowPage(servicesPage)
 
 	if err := ui.App.Run(); err != nil {
 		fmt.Println("Failed to start application")

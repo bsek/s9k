@@ -22,56 +22,6 @@ var _ ui.ContentPage = (*ServiceDetailPage)(nil)
 type ServiceDetailPage struct {
 	Flex        *tview.Flex
 	CurrentItem int
-	closeFunc   func()
-}
-
-func (s *ServiceDetailPage) SetCloseFunc(closeFunc func()) {
-	s.closeFunc = closeFunc
-}
-
-// Shortcut implements ui.ContentPage.
-func (*ServiceDetailPage) Shortcut() rune {
-	return '3'
-}
-
-// SetFocus implements ui.ContextPage.
-func (s *ServiceDetailPage) SetFocus(app *tview.Application) {
-	app.SetFocus(s.Flex.GetItem(s.CurrentItem))
-}
-
-// ContextView implements ui.TablePage.
-func (*ServiceDetailPage) ContextView() tview.Primitive {
-	tw := tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(false).
-		SetWrap(false)
-
-	bw := tw.BatchWriter()
-	defer bw.Close()
-
-	fmt.Fprintln(bw, "[bold]tab [darkcyan::-]select view")
-	fmt.Fprintln(bw, "")
-	fmt.Fprintln(bw, "[bold]r [darkcyan::-]restart service")
-	fmt.Fprintln(bw, "")
-	fmt.Fprintln(bw, "[bold]x [darkcyan::-]close")
-	fmt.Fprintln(bw, "[bold]Enter [darkcyan::-]select")
-
-	return tw
-}
-
-// Name implements ui.TablePage.
-func (*ServiceDetailPage) Name() string {
-	return "Service details page"
-}
-
-// Render implements ui.TablePage.
-func (*ServiceDetailPage) Render(accountData *data.AccountData) {
-
-}
-
-// Table implements ui.TablePage.
-func (s *ServiceDetailPage) View() tview.Primitive {
-	return s.Flex
 }
 
 func NewServiceDetailsPage(inputData *data.ServiceData, deployFunc func(version string), restartFunc func(), openActions func(task *types.Task, container data.Container)) *ServiceDetailPage {
@@ -107,10 +57,6 @@ func (s *ServiceDetailPage) createInputHandler(flex *tview.Flex, restartFunc fun
 
 			if key == 'r' || key == 'R' {
 				restartFunc()
-			}
-
-			if key == 'x' || key == 'X' {
-				s.closeFunc()
 			}
 		}
 
@@ -326,4 +272,46 @@ func fetchCommits(name string) []github.Commit {
 	}
 
 	return c
+}
+
+func (*ServiceDetailPage) Name() string {
+	return "details page"
+}
+
+func (*ServiceDetailPage) Render(accountData *data.AccountData) {
+
+}
+
+func (s *ServiceDetailPage) View() tview.Primitive {
+	return s.Flex
+}
+
+func (s *ServiceDetailPage) Close() {
+
+}
+
+func (s *ServiceDetailPage) IsPersistent() bool {
+	return false
+}
+
+func (s *ServiceDetailPage) SetFocus(app *tview.Application) {
+	app.SetFocus(s.Flex.GetItem(s.CurrentItem))
+}
+
+func (*ServiceDetailPage) ContextView() tview.Primitive {
+	tw := tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(false).
+		SetWrap(false)
+
+	bw := tw.BatchWriter()
+	defer bw.Close()
+
+	fmt.Fprintln(bw, "[white::b]Tab [darkcyan::-]Select view")
+	fmt.Fprintln(bw, "")
+	fmt.Fprintln(bw, "[white::b]r [darkcyan::-]Restart service")
+	fmt.Fprintln(bw, "")
+	fmt.Fprintln(bw, "[white::b]Enter [darkcyan::-]Select")
+
+	return tw
 }

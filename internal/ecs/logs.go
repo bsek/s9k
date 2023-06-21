@@ -24,11 +24,6 @@ func showLogs(taskArn, serviceName string, container data.Container) {
 
 	logPage := logs.NewLogPage(logGroupName, logStreams)
 
-	closeFunc := func() {
-		ui.App.RemoveContent(logPage)
-	}
-	logPage.SetCloseFunc(closeFunc)
-
 	ui.App.RegisterContent(logPage)
 	ui.App.ShowPage(logPage)
 }

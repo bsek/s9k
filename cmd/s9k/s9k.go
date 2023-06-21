@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,7 +12,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func init() {
+
+}
+
 func main() {
+	debug := flag.Bool("debug", false, "sets log level to debug")
+
+	flag.Parse()
+
+	// Default level is info, unless debug flag is present
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if *debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
 	file, err := os.OpenFile(
 		"/tmp/s9k.log",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,

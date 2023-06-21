@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/bsek/s9k/internal/data"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/rs/zerolog/log"
 )
 
 var App *Application
@@ -13,7 +16,7 @@ func NewApplication(accountData *data.AccountData) *Application {
 		TviewApp:    tview.NewApplication(),
 		Layout:      tview.NewFlex(),
 		Content:     tview.NewPages(),
-		ContentMap:  make(map[int32]ContentPage, 0),
+		ContentMap:  make(map[string]ContentPage, 0),
 		HeaderBar:   NewHeader(accountData.AccountId, accountData.ClusterName),
 		AccountData: accountData,
 	}
@@ -23,11 +26,20 @@ func (a *Application) Run() error {
 	return a.TviewApp.Run()
 }
 
-// Select a table page with a single key shortcut
-func (a *Application) setContentByKey(key int32) bool {
+// Select a content page with a single key shortcut
+func (a *Application) setContentByKey(key string) bool {
+	currentPage := a.getCurrentDisplayedContentPage()
+
 	if page, found := a.ContentMap[key]; found {
-		a.ShowPage(page)
+		// If same page, do nothing
+		if page.Name() != currentPage.Name() {
+			if !currentPage.IsPersistent() {
+				a.RemoveContent(currentPage)
+			}
+			a.ShowPage(page)
+		}
 		return true
+
 	}
 	return false
 }
@@ -46,7 +58,7 @@ func (a *Application) ShowPage(selectedPage ContentPage) {
 
 func (a *Application) updateData() {
 	a.AccountData.Refresh()
-	a.getCurrentlyDisplayedTablePage().Render(a.AccountData)
+	a.getCurrentDisplayedContentPage().Render(a.AccountData)
 	a.HeaderBar.UpdateRefreshTime(a.AccountData.Refreshed)
 	a.HeaderBar.Render(a.ContentMap)
 }
@@ -57,7 +69,7 @@ func (a *Application) handleAppInput(event *tcell.EventKey) *tcell.EventKey {
 		key := event.Rune()
 
 		// change listpage by shortcut
-		if a.setContentByKey(key) {
+		if a.setContentByKey(string(key)) {
 			return event
 		}
 
@@ -78,8 +90,10 @@ func (a *Application) handleAppInput(event *tcell.EventKey) *tcell.EventKey {
 	return event
 }
 
-func (a *Application) getCurrentlyDisplayedTablePage() ContentPage {
+func (a *Application) getCurrentDisplayedContentPage() ContentPage {
 	name, _ := a.Content.GetFrontPage()
+
+	log.Debug().Msgf("Looking for page with name %s", name)
 
 	var p ContentPage
 	for _, page := range a.ContentMap {
@@ -88,22 +102,23 @@ func (a *Application) getCurrentlyDisplayedTablePage() ContentPage {
 		}
 	}
 
+	log.Debug().Msgf("Found page %v", p)
+
 	return p
 }
 
 func (a *Application) RegisterContent(page ContentPage) {
+	log.Debug().Msgf("Registering page %s", page.Name())
 	a.Content.AddPage(page.Name(), page.View(), true, false)
-	a.ContentMap[int32(page.Shortcut())] = page
+	a.ContentMap[strings.ToLower(page.Name()[0:1])] = page
 }
 
 func (a *Application) RemoveContent(page ContentPage) {
-	key := int32(page.Shortcut())
-
-	delete(a.ContentMap, key)
-	a.Content.RemovePage(page.Name())
-
-	if key > 0 {
-		a.setContentByKey(key - 1)
+	log.Debug().Msgf("Removing page %s", page.Name())
+	if !page.IsPersistent() {
+		page.Close()
+		delete(a.ContentMap, strings.ToLower(page.Name()[0:1]))
+		a.Content.RemovePage(page.Name())
 	}
 }
 
@@ -120,8 +135,4 @@ func (a *Application) BuildApplicationUI() {
 		SetRoot(a.Layout, true).
 		SetInputCapture(a.handleAppInput).
 		EnableMouse(true)
-
-	if len(a.ContentMap) > 0 {
-		a.setContentByKey('1')
-	}
 }
