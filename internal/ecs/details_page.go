@@ -7,14 +7,15 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+	"github.com/rs/zerolog/log"
+
 	"github.com/bsek/s9k/internal/aws"
 	"github.com/bsek/s9k/internal/data"
 	"github.com/bsek/s9k/internal/github"
 	"github.com/bsek/s9k/internal/ui"
 	"github.com/bsek/s9k/internal/utils"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
-	"github.com/rs/zerolog/log"
 )
 
 var _ ui.ContentPage = (*ServiceDetailPage)(nil)
@@ -173,7 +174,7 @@ func createServiceTaskTable(service *data.ServiceData, clusterName string, openA
 
 		ui.AddTableData(containerTable, headers, tableData, alignment, expansions, tcell.ColorLightBlue, true)
 
-		containerTable.SetSelectedFunc(func(row, column int) {
+		containerTable.SetSelectedFunc(func(row, _ int) {
 			cell := containerTable.GetCell(row, 0)
 			container := containerTable.GetCell(row, 0).Reference.(data.Container)
 			log.Info().Msgf("Using cell: %s and found container data: %v", cell.Text, container)
@@ -248,7 +249,7 @@ func createDeployablesTable(service *types.Service, deployFunc func(version stri
 
 	ui.AddTableData(deployTable, headers, data, alignment, expansions, tcell.ColorBlue, true)
 
-	deployTable.SetSelectedFunc(func(row, column int) {
+	deployTable.SetSelectedFunc(func(row, _ int) {
 		version := deployTable.GetCell(row, 1).Text
 		deployFunc(version)
 	})
@@ -279,7 +280,6 @@ func (*ServiceDetailPage) Name() string {
 }
 
 func (*ServiceDetailPage) Render(accountData *data.AccountData) {
-
 }
 
 func (s *ServiceDetailPage) View() tview.Primitive {
@@ -287,7 +287,6 @@ func (s *ServiceDetailPage) View() tview.Primitive {
 }
 
 func (s *ServiceDetailPage) Close() {
-
 }
 
 func (s *ServiceDetailPage) IsPersistent() bool {

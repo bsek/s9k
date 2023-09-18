@@ -2,8 +2,9 @@ package lambda
 
 import (
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/bsek/s9k/internal/ui"
 	"github.com/rivo/tview"
+
+	"github.com/bsek/s9k/internal/ui"
 )
 
 func createActionForm(functionName string, arch lambdatypes.Architecture) {
@@ -12,7 +13,7 @@ func createActionForm(functionName string, arch lambdatypes.Architecture) {
 	modal := tview.NewModal().
 		SetText("What do you want to do?").
 		AddButtons([]string{"Show logs", "Restart service", "Deploy version", "Close"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Show logs" {
 				showLogs(functionName)
 			}

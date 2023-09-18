@@ -3,7 +3,7 @@ module github.com/bsek/s9k
 go 1.20
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.18.1
+	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.26.2
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.21.2
@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.2
 	github.com/creack/pty v1.1.18
 	github.com/gdamore/tcell/v2 v2.6.0
-	github.com/oslokommune/common-lib-go/aws v0.1.1
+	github.com/oslokommune/common-lib-go/aws v0.1.2
 	github.com/rs/zerolog v1.29.1
 	github.com/samber/lo v1.38.1
 	golang.org/x/oauth2 v0.7.0
@@ -25,8 +25,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.26 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.34 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.28 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.41 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.35 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.35 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.26 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.11 // indirect
@@ -57,8 +57,10 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2/service/apigateway v1.18.0
+	github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.13.13
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.35.2
-	github.com/aws/smithy-go v1.13.5 // indirect
+	github.com/aws/smithy-go v1.14.2 // indirect
 	github.com/google/go-github/v50 v50.2.0
 	github.com/rivo/tview v0.0.0-20230406072732-e22ce9588bb4
 )

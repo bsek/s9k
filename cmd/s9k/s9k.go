@@ -12,10 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func init() {
-
-}
-
 func main() {
 	debug := flag.Bool("debug", false, "sets log level to debug")
 

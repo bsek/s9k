@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+	"github.com/samber/lo"
+
 	"github.com/bsek/s9k/internal/data"
 	"github.com/bsek/s9k/internal/github"
 	"github.com/bsek/s9k/internal/ui"
 	"github.com/bsek/s9k/internal/utils"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
-	"github.com/samber/lo"
 )
 
 var _ ui.ContentPage = (*ServicePage)(nil)
@@ -18,10 +19,10 @@ var _ ui.ContentPage = (*ServicePage)(nil)
 const SERVICE_DETAIL_PAGE = "details"
 
 type ServicePage struct {
-	name          string
 	servicesTable *tview.Table
 	header        *tview.TextView
 	inputCapture  func()
+	name          string
 }
 
 // Returns a page that displays the services in a cluster
@@ -34,7 +35,7 @@ func NewServicesPage() *ServicePage {
 
 	servicesTable.SetSelectable(true, false)
 
-	servicesTable.SetSelectedFunc(func(row, column int) {
+	servicesTable.SetSelectedFunc(func(row, _ int) {
 		cell := servicesTable.GetCell(row, 1)
 		service := cell.Reference.(data.ServiceData)
 
@@ -105,7 +106,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 		return
 	}
 
-	serviceData := lo.Map(clusterData.Services, func(service data.ServiceData, index int) []string {
+	serviceData := lo.Map(clusterData.Services, func(service data.ServiceData, _ int) []string {
 		containers := service.Containers
 
 		deployTimeTxt := "n/a"
@@ -114,7 +115,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 			deployTimeTxt = utils.FormatLocalDateTime(*service.Service.Deployments[0].CreatedAt)
 			for _, v := range service.Service.Deployments {
 				if *v.Status == "PRIMARY" {
-					deployStatus = string(*(&v.RolloutState))
+					deployStatus = string(v.RolloutState)
 				}
 			}
 		}
@@ -127,8 +128,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 			taskCount = fmt.Sprintf("%s (%d desired)", taskCount, service.Service.DesiredCount)
 		}
 
-		var image string
-		image = containers[0].Image
+		image := containers[0].Image
 
 		return []string{
 			*service.Service.ServiceName,

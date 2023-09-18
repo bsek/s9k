@@ -1,17 +1,18 @@
 package ecs
 
 import (
+	"github.com/rivo/tview"
+
 	"github.com/bsek/s9k/internal/data"
 	"github.com/bsek/s9k/internal/shell"
 	"github.com/bsek/s9k/internal/ui"
-	"github.com/rivo/tview"
 )
 
 func action(taskArn, serviceName, clusterArn string, container data.Container) {
 	modal := tview.NewModal().
 		SetText("What do you want to do?").
 		AddButtons([]string{"Show logs", "Open shell", "Close"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Show logs" {
 				showLogs(taskArn, serviceName, container)
 				ui.App.Content.RemovePage("modal")

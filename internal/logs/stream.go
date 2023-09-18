@@ -1,14 +1,18 @@
 package logs
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
+
+	"github.com/rivo/tview"
+	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 
 	"github.com/bsek/s9k/internal/aws"
 	"github.com/bsek/s9k/internal/ui"
-	"github.com/rivo/tview"
-	"github.com/rs/zerolog/log"
 )
 
 type LogStreamPage struct {
@@ -18,12 +22,19 @@ type LogStreamPage struct {
 	NextToken    *string
 	wrap         bool
 	follow       bool
+	Json         bool
+	ParseFields  []string
+	Interval     time.Duration
 	ticker       *time.Ticker
-	interval     time.Duration
 	endChan      chan bool
 }
 
 const duration = 2 * time.Second
+
+var (
+	timestampRe = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)`)
+	newlineRe   = regexp.MustCompile(`\n`)
+)
 
 func NewLogStreamPage(logGroupName, logStreamName string, load bool) *LogStreamPage {
 	textView := tview.NewTextView().
@@ -41,7 +52,7 @@ func NewLogStreamPage(logGroupName, logStreamName string, load bool) *LogStreamP
 		wrap:         false,
 		follow:       true,
 		ticker:       time.NewTicker(duration),
-		interval:     30 * time.Minute,
+		Interval:     30 * time.Minute,
 		endChan:      make(chan bool),
 	}
 
@@ -63,6 +74,21 @@ func (p *LogStreamPage) SwitchWrap() {
 	p.View.SetTitle(p.createTitle(p.View.GetOriginalLineCount()))
 }
 
+func (p *LogStreamPage) ParseFirstMessage() {
+	text := p.View.GetText(false)
+	lines := strings.Split(text, "\n")
+
+	if len(lines) > 0 {
+		var fieldsMap map[string]any
+		err := json.Unmarshal([]byte(lines[0]), &fieldsMap)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to unmarshal log text")
+			return
+		}
+		p.ParseFields = lo.Keys(fieldsMap)
+	}
+}
+
 func (p *LogStreamPage) SwitchFollow() {
 	p.follow = !p.follow
 	if p.follow {
@@ -72,10 +98,6 @@ func (p *LogStreamPage) SwitchFollow() {
 	}
 
 	p.View.SetTitle(p.createTitle(p.View.GetOriginalLineCount()))
-}
-
-func (p *LogStreamPage) SetInterval(d time.Duration) {
-	p.interval = d
 }
 
 func (p *LogStreamPage) HighlightText(text *string) {
@@ -107,7 +129,7 @@ func (p *LogStreamPage) createTitle(length int) string {
 		title = fmt.Sprintf(`%s, wrap`, title)
 	}
 
-	title = fmt.Sprintf("%s, %s) ", title, p.interval)
+	title = fmt.Sprintf("%s, %s) ", title, p.Interval)
 
 	return title
 }
@@ -118,7 +140,7 @@ func (p *LogStreamPage) fetchLogItems() {
 
 	p.View.SetTitle(title)
 
-	output, nextToken, err := aws.FetchCloudwatchLogs(p.LogGroupName, p.StreamName, p.NextToken, p.interval)
+	output, nextToken, err := aws.FetchCloudwatchLogs(p.LogGroupName, p.StreamName, p.NextToken, p.Interval)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to load log data")
 		return
@@ -139,7 +161,7 @@ func (p *LogStreamPage) fetchLogItems() {
 	bw := p.View.BatchWriter()
 	for _, v := range output {
 		for _, v2 := range v {
-			fmt.Fprintln(bw, highlightDateTime(*v2.Message))
+			fmt.Fprintln(bw, stripNewLines(highlightDateTime(*v2.Message)))
 		}
 	}
 	bw.Close()
@@ -147,7 +169,10 @@ func (p *LogStreamPage) fetchLogItems() {
 	p.View.ScrollToEnd()
 }
 
+func stripNewLines(input string) string {
+	return newlineRe.ReplaceAllLiteralString(input, "")
+}
+
 func highlightDateTime(input string) string {
-	re := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)`)
-	return re.ReplaceAllString(input, "[lightgreen::b]${1}[white::-]")
+	return timestampRe.ReplaceAllString(input, "[lightgreen::b]${1}[white::-]")
 }

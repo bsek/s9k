@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
+	"github.com/rivo/tview"
+	"github.com/samber/lo"
+
 	"github.com/bsek/s9k/internal/data"
 	"github.com/bsek/s9k/internal/ui"
 	"github.com/bsek/s9k/internal/utils"
-	"github.com/rivo/tview"
-	"github.com/samber/lo"
 )
 
 var _ ui.ContentPage = (*LambdasPage)(nil)
 
 type LambdasPage struct {
-	name  string
 	table *tview.Table
+	name  string
 }
 
 const name = "functions"
@@ -30,8 +30,8 @@ func NewLambdasPage() *LambdasPage {
 
 	lambdasTable.SetSelectable(true, false)
 
-	lambdasTable.SetSelectedFunc(func(row, column int) {
-		ref := lambdasTable.GetCell(row, 1).Reference.(types.FunctionConfiguration)
+	lambdasTable.SetSelectedFunc(func(row, _ int) {
+		ref := lambdasTable.GetCell(row, 1).Reference.(data.Function)
 
 		createActionForm(*ref.FunctionName, ref.Architectures[0])
 	})
@@ -49,12 +49,13 @@ func (l *LambdasPage) Render(accountData *data.AccountData) {
 		return
 	}
 
-	data := lo.Map(lambdaData, func(function types.FunctionConfiguration, index int) []string {
+	data := lo.Map(lambdaData, func(function data.Function, _ int) []string {
 		modified, _ := time.Parse("2006-01-02T15:04:05.9Z0700", *function.LastModified)
 		return []string{
 			*function.FunctionName,
 			string(function.Runtime),
 			string(function.PackageType),
+			function.Tags["LastDeployed"],
 			utils.FormatBytes(function.CodeSize),
 			utils.FormatBytes(((int64)(*function.MemorySize) * 1000000)),
 			fmt.Sprintf("%s s", utils.I32ToString(*function.Timeout)),
@@ -65,9 +66,9 @@ func (l *LambdasPage) Render(accountData *data.AccountData) {
 
 	data = ui.PrependRowNumColumn(data)
 
-	alignment := []int{tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignRight, tview.AlignRight, tview.AlignRight, tview.AlignLeft, tview.AlignRight}
-	expansions := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-	headers := []string{"#", "Name ▾", "Runtime", "Package type", "Code size", "Memory size", "Timeout", "Architecture", "Last modified"}
+	alignment := []int{tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignLeft, tview.AlignRight, tview.AlignRight, tview.AlignRight, tview.AlignLeft, tview.AlignRight}
+	expansions := []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	headers := []string{"#", "Name ▾", "Runtime", "Package type", "Version", "Code size", "Memory size", "Timeout", "Architecture", "Last modified"}
 
 	ui.AddTableData(l.table, headers, data, alignment, expansions, tview.Styles.PrimaryTextColor, true)
 
@@ -105,7 +106,6 @@ func (l *LambdasPage) View() tview.Primitive {
 }
 
 func (l *LambdasPage) Close() {
-	l.Close()
 }
 
 func (l *LambdasPage) IsPersistent() bool {

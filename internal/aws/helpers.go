@@ -8,6 +8,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	awscloudwatchlogstypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
@@ -17,6 +19,8 @@ import (
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/oslokommune/common-lib-go/aws/awsapigateway"
+	"github.com/oslokommune/common-lib-go/aws/awsapigatewayv2"
 	awscloudwatch "github.com/oslokommune/common-lib-go/aws/awscloudwatch"
 	"github.com/oslokommune/common-lib-go/aws/awsecs"
 	"github.com/oslokommune/common-lib-go/aws/awslambda"
@@ -35,9 +39,9 @@ type Version struct {
 
 // Logitem, describing who installed which version
 type LogItem struct {
+	Updated time.Time `json:"updated,omitempty"`
 	User    string    `json:"user,omitempty"`
 	Version string    `json:"version,omitempty"`
-	Updated time.Time `json:"updated,omitempty"`
 }
 
 const S3_BUCKET_VAR_NAME = "S3_DEPLOYMENT_BUCKET_NAME"
@@ -47,6 +51,8 @@ var (
 	s3Client             *s3.Client
 	stsClient            *sts.Client
 	lambdaClient         *lambda.Client
+	apigatewayv2Client   *apigatewayv2.Client
+	apigatewayClient     *apigateway.Client
 	cloudwatchClient     *cloudwatch.Client
 	cloudwatchLogsClient *cloudwatchlogs.Client
 	s3_bucket_name       string
@@ -65,11 +71,90 @@ func init() {
 
 	// configures clients
 	ecsClient = ecs.NewFromConfig(cfg)
+	apigatewayv2Client = apigatewayv2.NewFromConfig(cfg)
+	apigatewayClient = apigateway.NewFromConfig(cfg)
 	lambdaClient = lambda.NewFromConfig(cfg)
 	s3Client = s3.NewFromConfig(cfg)
 	stsClient = sts.NewFromConfig(cfg)
 	cloudwatchClient = cloudwatch.NewFromConfig(cfg)
 	cloudwatchLogsClient = cloudwatchlogs.NewFromConfig(cfg)
+}
+
+// FetchApis reads apigateway apis
+func FetchApis() []ApiGateway {
+	values := make([]ApiGateway, 0, 20)
+
+	domainNames, error := awsapigatewayv2.GetDomainNames(context.TODO(), apigatewayv2Client)
+	if error != nil {
+		log.Error().Err(error).Msg("Failed to read apigateway domain names")
+		return nil
+	}
+
+	mapping := make(map[string]string, 0)
+	for _, v := range domainNames {
+		mappings, err := awsapigatewayv2.GetApiMappings(context.TODO(), apigatewayv2Client, *v.DomainName)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to read api gateway domain name mappings for domain %s", *v.DomainName)
+		} else {
+			if len(mappings) > 0 {
+				mapping[*mappings[0].ApiId] = *v.DomainName
+			}
+		}
+	}
+
+	httpApis, error := awsapigatewayv2.GetApiGatewayv2Apis(context.TODO(), apigatewayv2Client)
+	if error != nil {
+		log.Error().Err(error).Msg("Failed to read apigateway rest apis")
+	} else {
+		for _, api := range httpApis {
+			description := ""
+			if api.Description != nil {
+				description = *api.Description
+			}
+
+			domainMapping := ""
+			if val, ok := mapping[*api.ApiId]; ok {
+				domainMapping = val
+			}
+
+			values = append(values, ApiGateway{
+				Name:        *api.Name,
+				Description: description,
+				ApiId:       *api.ApiId,
+				DomainName:  domainMapping,
+				Type:        Http,
+				CreatedDate: *api.CreatedDate,
+			})
+		}
+	}
+
+	restApis, error := awsapigateway.GetApiGatewayApis(context.TODO(), apigatewayClient)
+	if error != nil {
+		log.Error().Err(error).Msg("Failed to read apigateway http apis")
+	} else {
+		for _, api := range restApis {
+			description := ""
+			if api.Description != nil {
+				description = *api.Description
+			}
+
+			domainMapping := ""
+			if val, ok := mapping[*api.Id]; ok {
+				domainMapping = val
+			}
+
+			values = append(values, ApiGateway{
+				Name:        *api.Name,
+				Description: description,
+				ApiId:       *api.Id,
+				DomainName:  domainMapping,
+				Type:        Rest,
+				CreatedDate: *api.CreatedDate,
+			})
+		}
+	}
+
+	return values
 }
 
 // FetchCpuAndMemoryUsage reads memory and cpu usage from cloudwatch metrics for a given ECS service. Service and cluster name must be provided.
@@ -146,6 +231,10 @@ func FetchAvailableVersions(functionName string) ([]Version, error) {
 	return versions, nil
 }
 
+func GetLambdaFunction(functionName string) (*lambda.GetFunctionOutput, error) {
+	return awslambda.GetFunction(context.Background(), lambdaClient, functionName)
+}
+
 // ListLambdaFunctions lists all lambda functions the account and returns them as a slice of FunctionConfigurations
 func ListLambdaFunctions() ([]lambdatypes.FunctionConfiguration, error) {
 	output, err := awslambda.ListFunctions(context.Background(), lambdaClient)
@@ -170,10 +259,17 @@ func UpdateLambdaFunctionDescription(functionName, newDescription string) error 
 // DeployLambdaFunction lets you update the function code for a specified lambda function by
 // setting the code to execute point to a zip file in a lambda bucket. Arch must match the architecture the
 // code is compiled for
-func DeployLambdaFunction(functionName, zipfile string, arch lambdatypes.Architecture) error {
-	_, err := awslambda.UpdateFunctionCode(context.Background(), lambdaClient, functionName, s3_bucket_name, zipfile, arch)
-	return err
+func DeployLambdaFunction(functionName, zipfile string, arch lambdatypes.Architecture) (*string, error) {
+	output, err := awslambda.UpdateFunctionCode(context.Background(), lambdaClient, functionName, s3_bucket_name, zipfile, arch)
+	if err != nil {
+		return nil, err
+	}
+	return output.FunctionArn, nil
+}
 
+// TagLambdaFunctionWithVersion adds LastDeployed tag to a lambda function
+func TagLambdaFunctionWithVersion(functionName, version string) error {
+	return awslambda.TagLambdaFunction(context.Background(), lambdaClient, functionName, map[string]string{"LastDeployed": version})
 }
 
 // ListECSClusters returns a slice of all ECS clusters found in the account
@@ -194,7 +290,6 @@ func ListECSClusters() ([]types.Cluster, error) {
 
 // DescribeClusterServices return a slice of the service descriptions found in the given ECS cluster
 func DescribeClusterServices(clusterName string) ([]types.Service, error) {
-
 	output, err := awsecs.ListServices(context.Background(), ecsClient, clusterName)
 	if err != nil {
 		return nil, err
@@ -226,7 +321,6 @@ func DescribeClusterServices(clusterName string) ([]types.Service, error) {
 // DescribeClusterTasks lists all tasks in a cluster or service (if serivceName != nil) and
 // returns a slice of the tasks found
 func DescribeClusterTasks(clusterName, serviceName *string) ([]types.Task, error) {
-
 	listTasksOutput, err := awsecs.ListTasks(context.Background(), ecsClient, *clusterName, *serviceName)
 	if err != nil {
 		return nil, err

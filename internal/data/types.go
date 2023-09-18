@@ -5,6 +5,8 @@ import (
 
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
+
+	"github.com/bsek/s9k/internal/aws"
 )
 
 // Stores information about AWS services and functions
@@ -18,15 +20,21 @@ type ECSClusterData struct {
 }
 
 type AccountData struct {
-	Functions   []lambdaTypes.FunctionConfiguration
+	Functions   []Function
 	ClusterData *ECSClusterData
 	ClusterName string
 	Refreshed   time.Time
 	AccountId   string
+	Apis        []aws.ApiGateway
 }
 
 type Container struct {
 	Name            string
 	Image           string
 	LogStreamPrefix string
+}
+
+type Function struct {
+	Tags map[string]string
+	lambdaTypes.FunctionConfiguration
 }

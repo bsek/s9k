@@ -3,12 +3,14 @@ package entrypoint
 import (
 	"fmt"
 
+	"github.com/rs/zerolog/log"
+
+	"github.com/bsek/s9k/internal/apigateway"
 	"github.com/bsek/s9k/internal/aws"
 	"github.com/bsek/s9k/internal/data"
 	"github.com/bsek/s9k/internal/ecs"
 	"github.com/bsek/s9k/internal/lambda"
 	"github.com/bsek/s9k/internal/ui"
-	"github.com/rs/zerolog/log"
 )
 
 func LoadData() *data.AccountData {
@@ -33,7 +35,7 @@ func LoadData() *data.AccountData {
 
 // Entrypoint for the application
 func Entrypoint() {
-	fmt.Println("Loading information about your AWS ECS cluster and Lambda functions...")
+	fmt.Println("Loading information...")
 
 	accountData := LoadData()
 
@@ -41,11 +43,13 @@ func Entrypoint() {
 
 	servicesPage := ecs.NewServicesPage()
 	lambdasPage := lambda.NewLambdasPage()
+	apigatewayPage := apigateway.NewApiGatewayPage()
 
 	ui.App.BuildApplicationUI()
 
 	ui.App.RegisterContent(servicesPage)
 	ui.App.RegisterContent(lambdasPage)
+	ui.App.RegisterContent(apigatewayPage)
 
 	ui.App.ShowPage(servicesPage)
 

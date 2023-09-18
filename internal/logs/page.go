@@ -24,6 +24,7 @@ type LogPage struct {
 	highlightedText     string
 	logStreamPagesIndex map[string]*LogStreamPage
 	logStreamPages      *tview.Pages
+	highlightField      *tview.InputField
 	currentStreamName   string
 	closefunc           func()
 }
@@ -45,11 +46,19 @@ func NewLogPage(logGroupName string, logStreams []types.LogStream) *LogPage {
 		logGroupName:      logGroupName,
 		streams:           streams,
 		currentStreamName: currentStreamName,
+		highlightField:    tview.NewInputField(),
 	}
+
+	logPage.highlightField.SetChangedFunc(logPage.highlightTextChanged)
 
 	flex.SetInputCapture(logPage.inputHandler)
 
 	return logPage
+}
+
+func (l *LogPage) highlightTextChanged(text string) {
+	logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
+	logStreamPage.HighlightText(&text)
 }
 
 func (l *LogPage) inputHandler(event *tcell.EventKey) *tcell.EventKey {
@@ -83,7 +92,7 @@ func (l *LogPage) selectLogStreamPageByIndex(key tcell.Key) bool {
 		logStreamPage := l.logStreamPagesIndex[l.currentStreamName]
 		logStreamPage.End()
 
-		if value, exist := l.logStreamPagesIndex[tcell.KeyNames[key]]; exist == true {
+		if value, exist := l.logStreamPagesIndex[tcell.KeyNames[key]]; exist {
 			go value.LoadData()
 			l.currentStreamName = tcell.KeyNames[key]
 			l.logStreamPages.SwitchToPage(value.StreamName)
@@ -115,7 +124,8 @@ func (l *LogPage) buildUI() {
 
 		l.Flex.
 			SetDirection(tview.FlexRow).
-			AddItem(l.logStreamPages, 0, 1, false)
+			AddItem(l.logStreamPages, 0, 1, false).
+			AddItem(l.highlightField, 2, 1, false)
 	}
 }
 
@@ -143,16 +153,17 @@ func buildContextMenu(streams []string) *tview.Flex {
 		SetWrap(true)
 
 	bw := configBar.BatchWriter()
+	defer bw.Close()
 
 	fmt.Fprintln(bw, "[white::b]w [darkcyan::-]wrap")
 	fmt.Fprintln(bw, "[white::b]t [darkcyan::-]tail")
+	fmt.Fprintln(bw, "[white::b]j [darkcyan::-]view as json")
+	fmt.Fprintln(bw, "")
+	fmt.Fprintln(bw, "[white::b]0 [darkcyan::-]1m")
+	fmt.Fprintln(bw, "[white::b]1 [darkcyan::-]5m")
+	fmt.Fprintln(bw, "[white::b]2 [darkcyan::-]15m")
+	fmt.Fprintln(bw, "[white::b]3 [darkcyan::-]30m")
 
-	bw.Close()
-	/*	fmt.Fprintln(configBar, "[bold]0 [darkcyan::-]1m")
-		fmt.Fprintln(configBar, "[bold]1 [darkcyan::-]5m")
-		fmt.Fprintln(configBar, "[bold]2 [darkcyan::-]15m")
-		fmt.Fprintln(configBar, "[bold]3 [darkcyan::-]30m")
-	*/
 	flex.AddItem(streamBar, 0, 4, false)
 	flex.AddItem(configBar, 0, 1, false)
 

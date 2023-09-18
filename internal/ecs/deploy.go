@@ -3,9 +3,10 @@ package ecs
 import (
 	"fmt"
 
+	"github.com/rivo/tview"
+
 	"github.com/bsek/s9k/internal/github"
 	"github.com/bsek/s9k/internal/ui"
-	"github.com/rivo/tview"
 )
 
 func deploy(clusterName, serviceName, version string) {
@@ -14,7 +15,7 @@ func deploy(clusterName, serviceName, version string) {
 	modal := tview.NewModal().
 		SetText(fmt.Sprintf("Do you want to deploy version %s?", version)).
 		AddButtons([]string{"Deploy", "Cancel"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Deploy" {
 				err := github.CallGithubAction(clusterName, serviceName, version)
 				if err != nil {

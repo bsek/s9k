@@ -5,10 +5,11 @@ import (
 	"strings"
 
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/bsek/s9k/internal/aws"
-	"github.com/bsek/s9k/internal/ui"
 	"github.com/rivo/tview"
 	"github.com/rs/zerolog/log"
+
+	"github.com/bsek/s9k/internal/aws"
+	"github.com/bsek/s9k/internal/ui"
 )
 
 func retrieveListOfDeployables(functionName string) []string {
@@ -27,7 +28,7 @@ func retrieveListOfDeployables(functionName string) []string {
 	return list
 }
 
-func createInstallForm(functionName string, deployables []string, selected func(string, int), quit func(), deploy func()) *tview.Form {
+func createInstallForm(_ string, deployables []string, selected func(string, int), quit func(), deploy func()) *tview.Form {
 	form := tview.NewForm().
 		AddDropDown("Deployable", deployables, 0, selected).
 		AddButton("Deploy", deploy).
@@ -42,7 +43,7 @@ func deploy(functionName string, arch lambdatypes.Architecture) {
 	var selectedOption string
 
 	form := createInstallForm(functionName, retrieveListOfDeployables(functionName),
-		func(option string, optionIndex int) {
+		func(option string, _ int) {
 			selectedOption = option
 		},
 		func() {
@@ -51,11 +52,15 @@ func deploy(functionName string, arch lambdatypes.Architecture) {
 		func() {
 			log.Info().Msgf("Deployed version %s", selectedOption)
 
-			err := aws.DeployLambdaFunction(functionName, selectedOption, arch)
+			arn, err := aws.DeployLambdaFunction(functionName, selectedOption, arch)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to update %s to version %s", functionName, selectedOption)
 				ui.CreateMessageBox(fmt.Sprintf("Failed to update %s to version %s", functionName, selectedOption))
 			} else {
+				err := aws.TagLambdaFunctionWithVersion(*arn, selectedOption)
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed to tag %s with version %s", functionName, selectedOption)
+				}
 				ui.CreateMessageBox(fmt.Sprintf("%s successfully updated to version %s", functionName, selectedOption))
 			}
 
