@@ -157,7 +157,7 @@ func buildContextMenu(streams []string) *tview.Flex {
 
 	fmt.Fprintln(bw, "[white::b]w [darkcyan::-]wrap")
 	fmt.Fprintln(bw, "[white::b]t [darkcyan::-]tail")
-	fmt.Fprintln(bw, "[white::b]j [darkcyan::-]view as json")
+	fmt.Fprintln(bw, "[white::b]p [darkcyan::-]parse json")
 	fmt.Fprintln(bw, "")
 	fmt.Fprintln(bw, "[white::b]0 [darkcyan::-]1m")
 	fmt.Fprintln(bw, "[white::b]1 [darkcyan::-]5m")

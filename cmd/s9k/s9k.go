@@ -6,10 +6,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bsek/s9k/internal/entrypoint"
-	"github.com/bsek/s9k/internal/github"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/bsek/s9k/internal/entrypoint"
+	"github.com/bsek/s9k/internal/github"
 )
 
 func main() {

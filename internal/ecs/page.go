@@ -39,12 +39,14 @@ func NewServicesPage() *ServicePage {
 		cell := servicesTable.GetCell(row, 1)
 		service := cell.Reference.(data.ServiceData)
 
+		clusterName := utils.RemoveAllBeforeLastChar("/", *service.Service.ClusterArn)
+
 		deployFunction := func(version string) {
-			deploy(utils.RemoveAllBeforeLastChar("/", *service.Service.ClusterArn), *service.Service.ServiceName, version)
+			deploy(clusterName, *service.Service.ServiceName, version)
 		}
 
 		restartFunction := func() {
-			restart(*service.Service.ServiceName)
+			restart(*service.Service.ServiceName, clusterName)
 		}
 
 		actionsFunc := func(task *types.Task, container data.Container) {

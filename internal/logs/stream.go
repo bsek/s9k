@@ -16,17 +16,17 @@ import (
 )
 
 type LogStreamPage struct {
-	StreamName   string
-	LogGroupName string
 	View         *tview.TextView
 	NextToken    *string
+	ticker       *time.Ticker
+	endChan      chan bool
+	StreamName   string
+	LogGroupName string
+	ParseFields  []string
+	Interval     time.Duration
 	wrap         bool
 	follow       bool
 	Json         bool
-	ParseFields  []string
-	Interval     time.Duration
-	ticker       *time.Ticker
-	endChan      chan bool
 }
 
 const duration = 2 * time.Second
