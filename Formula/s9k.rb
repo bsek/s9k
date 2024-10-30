@@ -5,20 +5,20 @@
 class S9k < Formula
   desc "A CLI tool for displaying AWS services"
   homepage "https://github.com/oslokommune/s9k"
-  version "0.0.2"
+  version "0.0.3"
 
   on_macos do
     on_intel do
-      url "https://github.com/bsek/s9k/releases/download/v0.0.2/s9k_Darwin_x86_64.tar.gz"
-      sha256 "23889473c81933eba93270db7f55be59a4faa00be236bdac74a244c8333bebe4"
+      url "https://github.com/bsek/s9k/releases/download/v0.0.3/s9k_Darwin_x86_64.tar.gz"
+      sha256 "1ceadff28afbf4604a5af226d6c59d43316ccc40d82f782d14010c5b8b8e9ff6"
 
       def install
         bin.install "s9k"
       end
     end
     on_arm do
-      url "https://github.com/bsek/s9k/releases/download/v0.0.2/s9k_Darwin_arm64.tar.gz"
-      sha256 "665699898b8cd3bfbebd155ed323966ac2c0f1fbae88d7f6313a81e757a94644"
+      url "https://github.com/bsek/s9k/releases/download/v0.0.3/s9k_Darwin_arm64.tar.gz"
+      sha256 "beef0a4c3a2c4633486a6aea5e74523542e59f84017a414b78e83e8f3ec45e22"
 
       def install
         bin.install "s9k"
@@ -29,8 +29,8 @@ class S9k < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/bsek/s9k/releases/download/v0.0.2/s9k_Linux_x86_64.tar.gz"
-        sha256 "a5e5c72dd950f9f78f46bdf9000d9912ca0c813100447ea19671660814c53756"
+        url "https://github.com/bsek/s9k/releases/download/v0.0.3/s9k_Linux_x86_64.tar.gz"
+        sha256 "3df86f7c64b27731d505c4074343b2c0a7b32b79477b98c52faf78bf08d60d5d"
 
         def install
           bin.install "s9k"
@@ -39,8 +39,8 @@ class S9k < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/bsek/s9k/releases/download/v0.0.2/s9k_Linux_arm64.tar.gz"
-        sha256 "530dcb55c707977e6102fa3c63d928c6983df1c4757608ea493804920750816c"
+        url "https://github.com/bsek/s9k/releases/download/v0.0.3/s9k_Linux_arm64.tar.gz"
+        sha256 "f342a91bbc76f8219b8dbad9d10fbe8a94592a7ccf7fd7d9d5a9cb9aefb5eef3"
 
         def install
           bin.install "s9k"
