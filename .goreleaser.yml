@@ -40,7 +40,7 @@ archives:
 brews:
   - name: s9k 
     description: A CLI tool for displaying AWS services 
-    homepage: https://github.com/oslokommune/s9k
+    homepage: https://github.com/bsek/s9k
     goarm: 6
     goamd64: v1
     skip_upload: false
