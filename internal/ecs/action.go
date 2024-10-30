@@ -14,7 +14,7 @@ func action(taskArn, serviceName, clusterArn string, container data.Container) {
 		AddButtons([]string{"Show logs", "Open shell", "Close"}).
 		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Show logs" {
-				showLogs(taskArn, serviceName, container)
+				showLogs(container.LogGroupName)
 				ui.App.Content.RemovePage("modal")
 			}
 			if buttonLabel == "Open shell" {

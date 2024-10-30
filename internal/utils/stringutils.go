@@ -39,12 +39,15 @@ func LowerTitle(s string) string {
 }
 
 // RemoveAllBeforeLastChar removes all characaters before and including delimiter
-func RemoveAllBeforeLastChar(delimiter string, src string) string {
-	lastIndex := strings.LastIndex(src, delimiter)
-	if lastIndex > 0 {
-		return src[lastIndex+1:]
+func RemoveAllBeforeLastChar(delimiter string, src *string) string {
+	if src != nil {
+		lastIndex := strings.LastIndex(*src, delimiter)
+		if lastIndex > 0 {
+			return (*src)[lastIndex+1:]
+		}
+		return *src
 	}
-	return src
+	return ""
 }
 
 // TakeLeft returns the left x chars from a string and hack

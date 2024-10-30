@@ -103,8 +103,9 @@ func loadECSClusterData(clusterName string) *ECSClusterData {
 		containers := lo.Map(taskDefintion.ContainerDefinitions, func(value ecsTypes.ContainerDefinition, _ int) Container {
 			container := Container{
 				Name:            *value.Name,
-				Image:           utils.TakeLeft(utils.RemoveAllBeforeLastChar("/", *value.Image), MAX_IMAGE_WIDTH),
+				Image:           utils.TakeLeft(utils.RemoveAllBeforeLastChar("/", value.Image), MAX_IMAGE_WIDTH),
 				LogStreamPrefix: value.LogConfiguration.Options["awslogs-stream-prefix"],
+				LogGroupName:    value.LogConfiguration.Options["awslogs-group"],
 			}
 
 			return container

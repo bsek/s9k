@@ -2,6 +2,7 @@ package ecs
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 )
 
 var _ ui.ContentPage = (*ServiceDetailPage)(nil)
+var region = os.Getenv("AWS_REGION")
 
 type ServiceDetailPage struct {
 	Flex        *tview.Flex
@@ -26,11 +28,11 @@ type ServiceDetailPage struct {
 }
 
 func NewServiceDetailsPage(inputData *data.ServiceData, deployFunc func(version string), restartFunc func(), openActions func(task *types.Task, container data.Container)) *ServiceDetailPage {
-	clusterName := utils.RemoveAllBeforeLastChar("/", *inputData.Service.ClusterArn)
+	clusterName := utils.RemoveAllBeforeLastChar("/", inputData.Service.ClusterArn)
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(createServiceDetailsTable(inputData.Service, clusterName), 6, 1, false).
 		AddItem(createServiceTaskTable(inputData, clusterName, openActions), 0, 3, false).
-		AddItem(createDeployablesTable(inputData.Service, deployFunc), 0, 3, false)
+		AddItem(createDeployablesTable(inputData.Service, clusterName, deployFunc), 0, 3, false)
 
 	page := &ServiceDetailPage{
 		Flex:        flex,
@@ -101,7 +103,7 @@ func createServiceDetailsTable(service *types.Service, clusterName string) *tvie
 
 	tableData = append(tableData, []string{
 		*service.ServiceName,
-		utils.RemoveAllBeforeLastChar("/", *service.TaskDefinition),
+		utils.RemoveAllBeforeLastChar("/", service.TaskDefinition),
 		utils.LowerTitle(*service.Status),
 		deployTimeTxt,
 		taskCount,
@@ -134,8 +136,8 @@ func createServiceTaskTable(service *data.ServiceData, clusterName string, openA
 
 	sort.SliceStable(tasks, func(i, j int) bool {
 		return 0 > strings.Compare(
-			utils.RemoveAllBeforeLastChar("/", *tasks[i].TaskDefinitionArn),
-			utils.RemoveAllBeforeLastChar("/", *tasks[j].TaskDefinitionArn))
+			utils.RemoveAllBeforeLastChar("/", tasks[i].TaskDefinitionArn),
+			utils.RemoveAllBeforeLastChar("/", tasks[j].TaskDefinitionArn))
 	})
 
 	tableData := [][]string{{}}
@@ -158,9 +160,9 @@ func createServiceTaskTable(service *data.ServiceData, clusterName string, openA
 
 			tableData = append(tableData, []string{
 				*container.Name,
-				utils.RemoveAllBeforeLastChar("/", *task.TaskArn),
-				utils.RemoveAllBeforeLastChar("/", *task.TaskDefinitionArn),
-				utils.RemoveAllBeforeLastChar("/", *container.Image),
+				utils.RemoveAllBeforeLastChar("/", task.TaskArn),
+				utils.RemoveAllBeforeLastChar("/", task.TaskDefinitionArn),
+				utils.RemoveAllBeforeLastChar("/", container.Image),
 				*container.LastStatus,
 				string(container.HealthStatus),
 				memory,
@@ -176,16 +178,18 @@ func createServiceTaskTable(service *data.ServiceData, clusterName string, openA
 
 		containerTable.SetSelectedFunc(func(row, _ int) {
 			cell := containerTable.GetCell(row, 0)
-			container := containerTable.GetCell(row, 0).Reference.(data.Container)
-			log.Info().Msgf("Using cell: %s and found container data: %v", cell.Text, container)
-
-			openActions(&task, container)
+			container, found := containerTable.GetCell(row, 0).Reference.(data.Container)
+			if found {
+				log.Info().Msgf("Using cell: %s and found container data: %v", cell.Text, container)
+				openActions(&task, container)
+			}
 		})
 
 		// set reference to container
-		for i := 0; i < len(service.Containers); i++ {
+		for i := 0; i < len(task.Containers); i++ {
 			cell := containerTable.GetCell(i+2, 0)
 			for _, v := range service.Containers {
+				log.Info().Msgf("Comparing %s with %s", v.Name, cell.Text)
 				if v.Name == cell.Text {
 					cell.SetReference(v)
 					log.Info().Msgf("Setting container %s to reference %v", cell.Text, v)
@@ -197,7 +201,7 @@ func createServiceTaskTable(service *data.ServiceData, clusterName string, openA
 	return containerTable
 }
 
-func createDeployablesTable(service *types.Service, deployFunc func(version string)) *tview.Table {
+func createDeployablesTable(service *types.Service, clusterName string, deployFunc func(version string)) *tview.Table {
 	deployTable := tview.NewTable()
 
 	deployTable.
@@ -209,7 +213,7 @@ func createDeployablesTable(service *types.Service, deployFunc func(version stri
 	var wg sync.WaitGroup
 
 	var commits []github.Commit
-	var packages []github.Package
+	var packages []aws.Package
 
 	wg.Add(2)
 	go func() {
@@ -219,7 +223,7 @@ func createDeployablesTable(service *types.Service, deployFunc func(version stri
 	}()
 
 	go func() {
-		p := fetchPackages(*service.ServiceName)
+		p := fetchPackages(clusterName, *service.ServiceName)
 		packages = append(packages, p...)
 		wg.Done()
 	}()
@@ -231,14 +235,14 @@ func createDeployablesTable(service *types.Service, deployFunc func(version stri
 	for _, p := range packages {
 		msg := ""
 		for _, c := range commits {
-			if p.Sha == c.Sha[0:7] {
+			if p.Sha[4:] == c.Sha {
 				msg = c.Message
 			}
 		}
 
 		data = append(data, []string{
 			utils.FormatLocalDateTime(p.Created),
-			strings.Replace(p.Image, "ghcr.io/oslokommune/", "", 1),
+			p.Sha,
 			msg,
 		})
 	}
@@ -251,26 +255,33 @@ func createDeployablesTable(service *types.Service, deployFunc func(version stri
 
 	deployTable.SetSelectedFunc(func(row, _ int) {
 		version := deployTable.GetCell(row, 1).Text
-		deployFunc(version)
+		for _, v := range packages {
+			if v.Sha == version {
+				deployFunc(fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s@%s", v.RegistryID, region, v.RepositoryName, version))
+			}
+		}
 	})
 
 	return deployTable
 }
 
-func fetchPackages(name string) []github.Package {
-	p, err := github.FetchPackagesfromGhcr(fmt.Sprintf("skjema-%s", name))
+func fetchPackages(cluster, name string) []aws.Package {
+	ecrRepo := fmt.Sprintf("%s-%s", cluster, name)
+	p, err := aws.FetchPackagesFromECR(ecrRepo)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to read packages from github")
+		log.Error().Err(err).Msg("Failed to read packages from ecr")
 	}
 
 	return p
 }
 
 func fetchCommits(name string) []github.Commit {
-	c, err := github.FetchCommits(fmt.Sprintf("skjema-app-%s", name))
+	c, err := github.FetchCommits("fasit-" + name)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read commits from github")
 	}
+
+	log.Debug().Msgf("Found commits: (%v)", c)
 
 	return c
 }

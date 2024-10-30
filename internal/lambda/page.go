@@ -33,7 +33,7 @@ func NewLambdasPage() *LambdasPage {
 	lambdasTable.SetSelectedFunc(func(row, _ int) {
 		ref := lambdasTable.GetCell(row, 1).Reference.(data.Function)
 
-		createActionForm(*ref.FunctionName, ref.Architectures[0])
+		createActionForm(*ref.FunctionName, *ref.LoggingConfig.LogGroup, ref.Architectures[0])
 	})
 
 	return &LambdasPage{

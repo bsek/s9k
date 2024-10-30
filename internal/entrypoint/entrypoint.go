@@ -14,7 +14,7 @@ import (
 )
 
 func LoadData() *data.AccountData {
-	account, err := aws.GetAccountInformation()
+	account, _, err := aws.GetAccountInformation()
 	if err != nil {
 		fmt.Println("Failed to read account information, make sure you are logged in to AWS")
 		log.Fatal().Err(err).Msg("Failed to read account information, make sure you are logged in to AWS")

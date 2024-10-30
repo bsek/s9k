@@ -32,6 +32,7 @@ type Container struct {
 	Name            string
 	Image           string
 	LogStreamPrefix string
+	LogGroupName    string
 }
 
 type Function struct {

@@ -27,4 +27,13 @@ type ApiGateway struct {
 	DomainName  string
 	ApiId       string
 	Type        ApiType
+	LogGropuArn string
+}
+
+type Package struct {
+	Sha            string
+	Image          string
+	Created        time.Time
+	RegistryID     string
+	RepositoryName string
 }

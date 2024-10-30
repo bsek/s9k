@@ -6,7 +6,7 @@ import (
 	"github.com/bsek/s9k/internal/ui"
 )
 
-func createActionForm(apiName string) {
+func createActionForm(logGroupArn string) {
 	const ACTION_FORM = "action_form"
 
 	modal := tview.NewModal().
@@ -14,7 +14,7 @@ func createActionForm(apiName string) {
 		AddButtons([]string{"Show access logs", "Close"}).
 		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Show access logs" {
-				showLogs(apiName)
+				showLogs(logGroupArn)
 			}
 			if buttonLabel == "Close" {
 				ui.App.Content.RemovePage(ACTION_FORM)

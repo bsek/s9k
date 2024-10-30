@@ -32,7 +32,7 @@ func NewApiGatewayPage() *ApiGatewayPage {
 		cell := page.table.GetCell(row, 1)
 		api := cell.Reference.(aws.ApiGateway)
 
-		createActionForm(api.Name)
+		createActionForm(api.LogGropuArn)
 	})
 
 	return page

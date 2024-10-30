@@ -7,7 +7,7 @@ import (
 	"github.com/bsek/s9k/internal/ui"
 )
 
-func createActionForm(functionName string, arch lambdatypes.Architecture) {
+func createActionForm(functionName, logGroupName string, arch lambdatypes.Architecture) {
 	const ACTION_FORM = "action_form"
 
 	modal := tview.NewModal().
@@ -15,7 +15,7 @@ func createActionForm(functionName string, arch lambdatypes.Architecture) {
 		AddButtons([]string{"Show logs", "Restart service", "Deploy version", "Close"}).
 		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Show logs" {
-				showLogs(functionName)
+				showLogs(logGroupName)
 			}
 			if buttonLabel == "Restart service" {
 				restart(functionName)

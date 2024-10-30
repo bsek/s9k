@@ -69,10 +69,10 @@ func FetchPackagesfromGhcr(name string) ([]Package, error) {
 
 func FetchCommits(name string) ([]Commit, error) {
 	opts := github.CommitsListOptions{
-		SHA:         "master",
+		SHA:         "main",
 		ListOptions: github.ListOptions{PerPage: 20},
 	}
-	commits, _, err := client.Repositories.ListCommits(context.Background(), "oslokommune", name, &opts)
+	commits, _, err := client.Repositories.ListCommits(context.Background(), "oslohel", name, &opts)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to read commits from repo %s", name)

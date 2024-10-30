@@ -9,7 +9,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/bsek/s9k/internal/data"
-	"github.com/bsek/s9k/internal/github"
 	"github.com/bsek/s9k/internal/ui"
 	"github.com/bsek/s9k/internal/utils"
 )
@@ -39,7 +38,7 @@ func NewServicesPage() *ServicePage {
 		cell := servicesTable.GetCell(row, 1)
 		service := cell.Reference.(data.ServiceData)
 
-		clusterName := utils.RemoveAllBeforeLastChar("/", *service.Service.ClusterArn)
+		clusterName := utils.RemoveAllBeforeLastChar("/", service.Service.ClusterArn)
 
 		deployFunction := func(version string) {
 			deploy(clusterName, *service.Service.ServiceName, version)
@@ -73,16 +72,6 @@ func createHelpText() *tview.TextView {
 	fmt.Fprintln(tw, "[::b]Enter [darkcyan::-]action")
 
 	return tw
-}
-
-func retrieveListOfECSDeployables(serviceName string) []string {
-	packages, _ := github.FetchPackagesfromGhcr(fmt.Sprintf("skjema-%s", serviceName))
-	list := make([]string, 0, len(packages))
-	for _, v := range packages {
-		list = append(list, v.Image)
-	}
-
-	return list
 }
 
 func (p *ServicePage) Table() *tview.Table {
@@ -134,7 +123,7 @@ func (p *ServicePage) Render(accountData *data.AccountData) {
 
 		return []string{
 			*service.Service.ServiceName,
-			utils.RemoveAllBeforeLastChar("/", *service.Service.TaskDefinition),
+			utils.RemoveAllBeforeLastChar("/", service.Service.TaskDefinition),
 			image,
 			deployTimeTxt,
 			deployStatus,

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	awscloudwatchlogstypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -22,6 +23,7 @@ import (
 	"github.com/oslokommune/common-lib-go/aws/awsapigateway"
 	"github.com/oslokommune/common-lib-go/aws/awsapigatewayv2"
 	awscloudwatch "github.com/oslokommune/common-lib-go/aws/awscloudwatch"
+	"github.com/oslokommune/common-lib-go/aws/awsecr"
 	"github.com/oslokommune/common-lib-go/aws/awsecs"
 	"github.com/oslokommune/common-lib-go/aws/awslambda"
 	"github.com/oslokommune/common-lib-go/aws/awss3"
@@ -48,6 +50,7 @@ const S3_BUCKET_VAR_NAME = "S3_DEPLOYMENT_BUCKET_NAME"
 
 var (
 	ecsClient            *ecs.Client
+	ecrClient            *ecr.Client
 	s3Client             *s3.Client
 	stsClient            *sts.Client
 	lambdaClient         *lambda.Client
@@ -63,14 +66,14 @@ func init() {
 
 	value, found := os.LookupEnv(S3_BUCKET_VAR_NAME)
 	if !found {
-		fmt.Printf("The %s environment variable is not set.\nIt must be set to the parent directory where your lambda function zip files are stored.\nExiting...", S3_BUCKET_VAR_NAME)
-		os.Exit(0)
+		fmt.Printf("The %s environment variable is not set.\nIt must be set to the parent directory where your lambda function zip files are stored.\n", S3_BUCKET_VAR_NAME)
 	}
 
 	s3_bucket_name = value
 
 	// configures clients
 	ecsClient = ecs.NewFromConfig(cfg)
+	ecrClient = ecr.NewFromConfig(cfg)
 	apigatewayv2Client = apigatewayv2.NewFromConfig(cfg)
 	apigatewayClient = apigateway.NewFromConfig(cfg)
 	lambdaClient = lambda.NewFromConfig(cfg)
@@ -107,6 +110,16 @@ func FetchApis() []ApiGateway {
 		log.Error().Err(error).Msg("Failed to read apigateway rest apis")
 	} else {
 		for _, api := range httpApis {
+			logGroupArn := ""
+			stage, err := awsapigatewayv2.GetDefaultStage(context.TODO(), apigatewayv2Client, *api.ApiId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to read default stage for api with id: %s", *api.ApiId)
+			} else {
+				if stage.AccessLogSettings != nil && stage.AccessLogSettings.DestinationArn != nil {
+					logGroupArn = *stage.AccessLogSettings.DestinationArn
+				}
+			}
+
 			description := ""
 			if api.Description != nil {
 				description = *api.Description
@@ -124,6 +137,7 @@ func FetchApis() []ApiGateway {
 				DomainName:  domainMapping,
 				Type:        Http,
 				CreatedDate: *api.CreatedDate,
+				LogGropuArn: logGroupArn,
 			})
 		}
 	}
@@ -166,12 +180,22 @@ func FetchCpuAndMemoryUsage(serviceName, clusterName string) (memoryUtilized uin
 	return
 }
 
+func FetchTailLogsChannel(logGroupArn string) (*cloudwatchlogs.StartLiveTailEventStream, error) {
+	output, err := awscloudwatch.TailLogs(context.Background(), logGroupArn, cloudwatchLogsClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to start log tail from cloudwatch")
+		return nil, err
+	}
+
+	return output, nil
+}
+
 // FetchLogStreams fetches log streams for a given log group. If container and taskArn is provided, it is used to filter the returned result.
 func FetchLogStreams(logGroupName string, container, taskArn *string) ([]awscloudwatchlogstypes.LogStream, error) {
 	task := new(string)
 
 	if taskArn != nil {
-		shortTask := utils.RemoveAllBeforeLastChar("/", *taskArn)
+		shortTask := utils.RemoveAllBeforeLastChar("/", taskArn)
 		task = &shortTask
 	}
 
@@ -180,6 +204,8 @@ func FetchLogStreams(logGroupName string, container, taskArn *string) ([]awsclou
 		log.Error().Err(err).Msg("Failed to read logstreams from cloudwatch")
 		return nil, err
 	}
+
+	log.Info().Msgf("Found streams: %+v", output)
 
 	return output, err
 }
@@ -195,14 +221,49 @@ func FetchCloudwatchLogs(logGroupName, logStreamName string, nextForwardToken *s
 	return
 }
 
+func FetchPackagesFromECR(name string) ([]Package, error) {
+	output, err := awsecr.DescribeImages(context.TODO(), name, ecrClient)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read packages from ECR")
+		return nil, err
+	}
+
+	packages := make([]Package, 0, len(output.ImageDetails))
+	for _, v := range output.ImageDetails {
+		if len(v.ImageTags) > 0 {
+			packages = append(packages, Package{
+				Sha:            v.ImageTags[0],
+				Image:          *v.ImageDigest,
+				Created:        *v.ImagePushedAt,
+				RegistryID:     *v.RegistryId,
+				RepositoryName: *v.RepositoryName,
+			})
+		}
+	}
+
+	return packages, nil
+}
+
+func UpdateECSImage(version, serviceName, clusterName string) error {
+	_, err := awsecs.UpdateEcsService(context.TODO(), ecsClient, version, serviceName, clusterName)
+	return err
+}
+
 // GetAccountInformation returns information about the logged in account
-func GetAccountInformation() (*string, error) {
+func GetAccountInformation() (*string, *string, error) {
 	input := &sts.GetCallerIdentityInput{}
 	output, err := stsClient.GetCallerIdentity(context.TODO(), input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return output.Account, nil
+
+	// Load the AWS configuration
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, nil, fmt.Errorf("Unable to load SDK config, %v", err)
+	}
+
+	return output.Account, &cfg.Region, nil
 }
 
 // RestartECSService restarts an ECS service by using updateing the service and setting the
@@ -368,5 +429,5 @@ func GetTaskDefinitions(taskDefinitionArns []string) ([]types.TaskDefinition, er
 
 // ShortTaskDefArn returns a short version of the task definition arn
 func ShortenTaskDefArn(taskDefinitionArn *string) string {
-	return utils.RemoveAllBeforeLastChar("/", *taskDefinitionArn)
+	return utils.RemoveAllBeforeLastChar("/", taskDefinitionArn)
 }

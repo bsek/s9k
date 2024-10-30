@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/rivo/tview"
+	"github.com/rs/zerolog/log"
 
-	"github.com/bsek/s9k/internal/github"
+	"github.com/bsek/s9k/internal/aws"
 	"github.com/bsek/s9k/internal/ui"
 )
 
@@ -17,9 +18,10 @@ func deploy(clusterName, serviceName, version string) {
 		AddButtons([]string{"Deploy", "Cancel"}).
 		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Deploy" {
-				err := github.CallGithubAction(clusterName, serviceName, version)
+				log.Debug().Msgf("Deploying version: [%s] for service [%s]", version, serviceName)
+				err := aws.UpdateECSImage(version, serviceName, clusterName)
 				if err != nil {
-					ui.CreateMessageBox("Failed to send deploy request, check log file")
+					ui.CreateMessageBox("Failed to deploy version, check log file")
 				}
 				ui.CreateMessageBox("Deploy request successfully sent")
 				ui.App.Content.RemovePage(DEPLOY_DIALOG)

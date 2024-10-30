@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/rivo/tview"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -16,17 +18,15 @@ import (
 )
 
 type LogStreamPage struct {
-	View         *tview.TextView
-	NextToken    *string
-	ticker       *time.Ticker
-	endChan      chan bool
-	StreamName   string
-	LogGroupName string
-	ParseFields  []string
-	Interval     time.Duration
-	wrap         bool
-	follow       bool
-	Json         bool
+	View        *tview.TextView
+	NextToken   *string
+	stream      *cloudwatchlogs.StartLiveTailEventStream
+	LogGroupArn string
+	ParseFields []string
+	//logStreams   []types.LogStream
+	wrap   bool
+	follow bool
+	Json   bool
 }
 
 const duration = 2 * time.Second
@@ -36,7 +36,7 @@ var (
 	newlineRe   = regexp.MustCompile(`\n`)
 )
 
-func NewLogStreamPage(logGroupName, logStreamName string, load bool) *LogStreamPage {
+func NewLogStreamPage(logGroupArn string, load bool) *LogStreamPage {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(false).
@@ -45,15 +45,15 @@ func NewLogStreamPage(logGroupName, logStreamName string, load bool) *LogStreamP
 
 	textView.SetBorder(true)
 
+	stream := openEventStream(logGroupArn)
+
 	page := LogStreamPage{
-		StreamName:   logStreamName,
-		LogGroupName: logGroupName,
-		View:         textView,
-		wrap:         false,
-		follow:       true,
-		ticker:       time.NewTicker(duration),
-		Interval:     30 * time.Minute,
-		endChan:      make(chan bool),
+		LogGroupArn: logGroupArn,
+		//	logStreams:   logStreams,
+		View:   textView,
+		wrap:   false,
+		follow: true,
+		stream: stream,
 	}
 
 	if load {
@@ -64,7 +64,9 @@ func NewLogStreamPage(logGroupName, logStreamName string, load bool) *LogStreamP
 }
 
 func (p *LogStreamPage) End() {
-	p.endChan <- true
+	if p.stream != nil {
+		p.stream.Close()
+	}
 }
 
 func (p *LogStreamPage) SwitchWrap() {
@@ -92,9 +94,12 @@ func (p *LogStreamPage) ParseFirstMessage() {
 func (p *LogStreamPage) SwitchFollow() {
 	p.follow = !p.follow
 	if p.follow {
-		p.ticker.Reset(duration)
+		p.stream.Close()
+		//	p.ticker.Reset(duration)
 	} else {
-		p.ticker.Stop()
+		p.stream = openEventStream(p.LogGroupArn)
+		go p.LoadData()
+		//	p.ticker.Stop()
 	}
 
 	p.View.SetTitle(p.createTitle(p.View.GetOriginalLineCount()))
@@ -105,22 +110,40 @@ func (p *LogStreamPage) HighlightText(text *string) {
 }
 
 func (p *LogStreamPage) LoadData() {
-	ui.App.TviewApp.QueueUpdateDraw(p.fetchLogItems)
-
+	eventsChan := p.stream.Events()
 	for {
-		select {
-		case <-p.ticker.C:
-			log.Debug().Msgf("Loading log data from %s", p.StreamName)
-			ui.App.TviewApp.QueueUpdateDraw(p.fetchLogItems)
-		case <-p.endChan:
-			log.Debug().Msgf("Stopping reading log records from %s", p.StreamName)
-			return
+		event := <-eventsChan
+		switch e := event.(type) {
+		case *types.StartLiveTailResponseStreamMemberSessionStart:
+			log.Info().Msg("Received SessionStart event")
+		case *types.StartLiveTailResponseStreamMemberSessionUpdate:
+			log.Info().Msg("Received tail response")
+			ui.App.TviewApp.QueueUpdateDraw(func() {
+				bw := p.View.BatchWriter()
+				for _, logEvent := range e.Value.SessionResults {
+					fmt.Fprintln(bw, stripNewLines(highlightDateTime(*logEvent.Message)))
+				}
+				bw.Close()
+				p.View.ScrollToEnd()
+			})
+		default:
+			// Handle on-stream exceptions
+			if err := p.stream.Err(); err != nil {
+				log.Fatal().Err(err).Msg("Error occured during streaming")
+			} else if event == nil {
+				log.Info().Msg("Stream is Closed")
+				return
+			} else {
+				log.Error().Msgf("Unknown event type: %T", e)
+			}
 		}
+
+		p.View.SetTitle(p.createTitle(p.View.GetOriginalLineCount()))
 	}
 }
 
 func (p *LogStreamPage) createTitle(length int) string {
-	title := fmt.Sprintf(" %s (%d rows", p.StreamName, length)
+	title := fmt.Sprintf(" %s (%d rows", p.LogGroupArn, length)
 
 	if p.follow {
 		title = fmt.Sprintf(`%s, tail`, title)
@@ -129,45 +152,53 @@ func (p *LogStreamPage) createTitle(length int) string {
 		title = fmt.Sprintf(`%s, wrap`, title)
 	}
 
-	title = fmt.Sprintf("%s, %s) ", title, p.Interval)
+	title = fmt.Sprintf("%s) ", title)
 
 	return title
 }
 
-func (p *LogStreamPage) fetchLogItems() {
-	log.Debug().Msgf("Loading log data from %s", p.StreamName)
-	title := fmt.Sprintf(" %s (Loading...) ", p.StreamName)
-
-	p.View.SetTitle(title)
-
-	output, nextToken, err := aws.FetchCloudwatchLogs(p.LogGroupName, p.StreamName, p.NextToken, p.Interval)
+func openEventStream(logGroupArn string) *cloudwatchlogs.StartLiveTailEventStream {
+	stream, err := aws.FetchTailLogsChannel(logGroupArn)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to load log data")
-		return
 	}
-
-	p.NextToken = nextToken
-
-	length := p.View.GetOriginalLineCount()
-
-	for _, v := range output {
-		length = length + len(v)
-	}
-
-	log.Debug().Msgf("Found %d rows", length)
-
-	p.View.SetTitle(p.createTitle(length))
-
-	bw := p.View.BatchWriter()
-	for _, v := range output {
-		for _, v2 := range v {
-			fmt.Fprintln(bw, stripNewLines(highlightDateTime(*v2.Message)))
-		}
-	}
-	bw.Close()
-
-	p.View.ScrollToEnd()
+	return stream
 }
+
+// func (p *LogStreamPage) fetchLogItems() {
+// 	log.Debug().Msgf("Loading log data from %s", p.StreamName)
+// 	title := fmt.Sprintf(" %s (Loading...) ", p.StreamName)
+
+// 	p.View.SetTitle(title)
+
+// 	output, nextToken, err := aws.FetchCloudwatchLogs(p.LogGroupName, p.StreamName, p.NextToken, p.Interval)
+// 	if err != nil {
+// 		log.Error().Err(err).Msg("Failed to load log data")
+// 		return
+// 	}
+
+// 	p.NextToken = nextToken
+
+// 	length := p.View.GetOriginalLineCount()
+
+// 	for _, v := range output {
+// 		length = length + len(v)
+// 	}
+
+// 	log.Debug().Msgf("Found %d rows", length)
+
+// 	p.View.SetTitle(p.createTitle(length))
+
+// 	bw := p.View.BatchWriter()
+// 	for _, v := range output {
+// 		for _, v2 := range v {
+// 			fmt.Fprintln(bw, stripNewLines(highlightDateTime(*v2.Message)))
+// 		}
+// 	}
+// 	bw.Close()
+
+// 	p.View.ScrollToEnd()
+// }
 
 func stripNewLines(input string) string {
 	return newlineRe.ReplaceAllLiteralString(input, "")
