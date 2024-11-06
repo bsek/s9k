@@ -5,14 +5,19 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+var caser = cases.Title(language.English)
 
 // I32ToString renders an int32 into a string
 func I32ToString(i int32) string {
-	return strconv.FormatInt(int64(i), 10)
+	return I64ToString(int64(i))
 }
 
-// I64ToString renders an *int64 into a string
+// I64ToString renders an int64 into a string
 func I64ToString(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
@@ -20,22 +25,19 @@ func I64ToString(i int64) string {
 // FormatBytes formats an *int64 into a string with size suffix
 func FormatBytes(i int64) string {
 	if i > 1024000 {
-		var bytes int32
-		bytes = int32(i / 1024000)
+		bytes := int32(i / 1024000)
 		return fmt.Sprintf("%s MB", I32ToString(bytes))
 	} else if i > 1024 {
-		var bytes int32
-		bytes = int32(i / 1024)
+		bytes := int32(i / 1024)
 		return fmt.Sprintf("%s KB", I32ToString(bytes))
 	} else {
 		return fmt.Sprintf("%s B", I64ToString(i))
 	}
-
 }
 
 // LowerTitle renders a string to lower title case (all lower case except for initial chars in each word)
 func LowerTitle(s string) string {
-	return strings.Title(strings.ToLower(s))
+	return caser.String(strings.ToLower(s))
 }
 
 // RemoveAllBeforeLastChar removes all characaters before and including delimiter

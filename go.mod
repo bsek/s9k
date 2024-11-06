@@ -2,7 +2,7 @@ module github.com/bsek/s9k
 
 go 1.23
 
-// replace github.com/oslokommune/common-lib-go/aws => ../common-lib-go/aws
+replace github.com/oslokommune/common-lib-go/aws => ../common-lib-go/aws
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.32.3
@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.36.3
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.45.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.2
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.52.8
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.7
 	github.com/creack/pty v1.1.21
 	github.com/gdamore/tcell/v2 v2.7.4
@@ -20,6 +21,7 @@ require (
 	github.com/samber/lo v1.39.0
 	golang.org/x/oauth2 v0.19.0
 	golang.org/x/term v0.24.0
+	golang.org/x/text v0.18.0
 )
 
 require (
@@ -59,7 +61,6 @@ require (
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240404231335-c0f41cb1a7a0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
 )
 
 require (

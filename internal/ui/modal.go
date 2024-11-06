@@ -45,21 +45,21 @@ func CreateMessageBox(content string) {
 }
 
 // CreateConfirmBox creates a modal message box using tview's native modal element. Two buttons are added (yes and no)
-// for which the yesFunc and noFunc callback functiosn will be called when pressed. The modal view is returned, so it
-// is up to the callee to add and remove it from the view
-func CreateConfirmBox(content string, yesFunc, noFunc func()) {
+// for which the yes and no callback functions will be called when pressed.
+func CreateConfirmBox(content string, yes, no func()) {
 	const CONFIRM_BOX = "confirm_box"
+
 	modal := tview.NewModal().
 		SetText(content).
 		AddButtons([]string{"Yes", "No"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		SetDoneFunc(func(_ int, buttonLabel string) {
 			if buttonLabel == "Yes" {
 				App.Content.RemovePage(CONFIRM_BOX)
-				yesFunc()
+				yes()
 			}
 			if buttonLabel == "No" {
 				App.Content.RemovePage(CONFIRM_BOX)
-				noFunc()
+				no()
 			}
 		})
 

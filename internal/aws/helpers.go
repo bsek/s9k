@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -19,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/oslokommune/common-lib-go/aws/awsapigateway"
 	"github.com/oslokommune/common-lib-go/aws/awsapigatewayv2"
@@ -26,6 +28,7 @@ import (
 	"github.com/oslokommune/common-lib-go/aws/awsecr"
 	"github.com/oslokommune/common-lib-go/aws/awsecs"
 	"github.com/oslokommune/common-lib-go/aws/awslambda"
+	awsssm "github.com/oslokommune/common-lib-go/aws/awsparameterstore"
 	"github.com/oslokommune/common-lib-go/aws/awss3"
 	"github.com/rs/zerolog/log"
 
@@ -54,6 +57,7 @@ var (
 	s3Client             *s3.Client
 	stsClient            *sts.Client
 	lambdaClient         *lambda.Client
+	ssmClient            *ssm.Client
 	apigatewayv2Client   *apigatewayv2.Client
 	apigatewayClient     *apigateway.Client
 	cloudwatchClient     *cloudwatch.Client
@@ -79,6 +83,7 @@ func init() {
 	lambdaClient = lambda.NewFromConfig(cfg)
 	s3Client = s3.NewFromConfig(cfg)
 	stsClient = sts.NewFromConfig(cfg)
+	ssmClient = ssm.NewFromConfig(cfg)
 	cloudwatchClient = cloudwatch.NewFromConfig(cfg)
 	cloudwatchLogsClient = cloudwatchlogs.NewFromConfig(cfg)
 }
@@ -231,8 +236,16 @@ func FetchPackagesFromECR(name string) ([]Package, error) {
 	packages := make([]Package, 0, len(output.ImageDetails))
 	for _, v := range output.ImageDetails {
 		if len(v.ImageTags) > 0 {
+			imageTag := v.ImageTags[0]
+			for _, tagName := range v.ImageTags {
+				if strings.HasPrefix(tagName, "sha") {
+					imageTag = tagName
+					break
+				}
+			}
+
 			packages = append(packages, Package{
-				Sha:            v.ImageTags[0],
+				Sha:            imageTag,
 				Image:          *v.ImageDigest,
 				Created:        *v.ImagePushedAt,
 				RegistryID:     *v.RegistryId,
@@ -246,6 +259,17 @@ func FetchPackagesFromECR(name string) ([]Package, error) {
 
 func UpdateECSImage(version, serviceName, clusterName string) error {
 	_, err := awsecs.UpdateEcsService(context.TODO(), ecsClient, version, serviceName, clusterName)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to update ecs service")
+		return err
+	}
+
+	value := utils.RemoveAllBeforeLastChar(":", &version)
+
+	err = awsssm.UpdateParameterStoreParameter(context.TODO(), ssmClient, fmt.Sprintf("/%s/ecs/%s/image-tag", clusterName, serviceName), value)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to update ssm parameter")
+	}
 	return err
 }
 

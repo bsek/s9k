@@ -22,8 +22,9 @@ func deploy(clusterName, serviceName, version string) {
 				err := aws.UpdateECSImage(version, serviceName, clusterName)
 				if err != nil {
 					ui.CreateMessageBox("Failed to deploy version, check log file")
+				} else {
+					ui.CreateMessageBox("Deploy request successfully sent")
 				}
-				ui.CreateMessageBox("Deploy request successfully sent")
 				ui.App.Content.RemovePage(DEPLOY_DIALOG)
 			}
 			if buttonLabel == "Cancel" {

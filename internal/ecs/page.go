@@ -49,7 +49,7 @@ func NewServicesPage() *ServicePage {
 		}
 
 		actionsFunc := func(task *types.Task, container data.Container) {
-			action(*task.TaskArn, *service.Service.ServiceName, *service.Service.ClusterArn, container)
+			action(*task.TaskArn, *service.Service.ClusterArn, container)
 		}
 
 		detailsPage := NewServiceDetailsPage(&service, deployFunction, restartFunction, actionsFunc)

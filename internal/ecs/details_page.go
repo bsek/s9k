@@ -39,14 +39,14 @@ func NewServiceDetailsPage(inputData *data.ServiceData, deployFunc func(version 
 		CurrentItem: 1,
 	}
 
-	handler := page.createInputHandler(flex, restartFunc)
+	handler := page.createInputHandler(restartFunc)
 	flex.SetInputCapture(handler)
 	flex.SetBorder(true)
 
 	return page
 }
 
-func (s *ServiceDetailPage) createInputHandler(flex *tview.Flex, restartFunc func()) func(event *tcell.EventKey) *tcell.EventKey {
+func (s *ServiceDetailPage) createInputHandler(restartFunc func()) func(event *tcell.EventKey) *tcell.EventKey {
 	function := func(event *tcell.EventKey) *tcell.EventKey {
 		app := ui.App
 
@@ -232,6 +232,10 @@ func createDeployablesTable(service *types.Service, clusterName string, deployFu
 
 	data := [][]string{{}}
 
+	sort.SliceStable(packages, func(i, j int) bool {
+		return packages[i].Created.After(packages[j].Created)
+	})
+
 	for _, p := range packages {
 		msg := ""
 		for _, c := range commits {
@@ -257,7 +261,7 @@ func createDeployablesTable(service *types.Service, clusterName string, deployFu
 		version := deployTable.GetCell(row, 1).Text
 		for _, v := range packages {
 			if v.Sha == version {
-				deployFunc(fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s@%s", v.RegistryID, region, v.RepositoryName, version))
+				deployFunc(fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s:%s", v.RegistryID, region, v.RepositoryName, version))
 			}
 		}
 	})
